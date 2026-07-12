@@ -8,8 +8,6 @@
   let statusText = "等待捕获资源";
   let panelState = "open";
   let activeFilter = "all";
-  let dateStart = "";
-  let dateEnd = "";
   let panelLeft = null;
   let panelTop = null;
   let dragState = null;
@@ -184,7 +182,7 @@
         white-space: nowrap;
       }
 
-      .actions, .toolbar-actions, .filter-tabs, .date-filters {
+      .actions, .toolbar-actions, .filter-tabs {
         display: flex;
         align-items: center;
       }
@@ -350,8 +348,8 @@
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 10px 12px;
-        padding: 12px 16px;
+        gap: 8px 12px;
+        padding: 10px 16px;
         border-bottom: 1px solid var(--border);
         background: var(--surface);
       }
@@ -386,38 +384,6 @@
         color: var(--primary);
         background: var(--surface);
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.09);
-      }
-
-      .date-filters {
-        gap: 6px;
-      }
-
-      .date-field {
-        height: var(--control-height);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 0 9px;
-        color: var(--text-secondary);
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-small);
-      }
-
-      .date-label {
-        font-size: 11px;
-        white-space: nowrap;
-      }
-
-      .date-input {
-        width: 112px;
-        min-width: 0;
-        padding: 0;
-        color: var(--text);
-        background: transparent;
-        border: 0;
-        outline: none;
-        font-size: 12px;
       }
 
       .toolbar-actions {
@@ -585,7 +551,9 @@
       .preview {
         position: relative;
         width: 100%;
-        height: 168px;
+        height: auto;
+        aspect-ratio: 4 / 3;
+        min-height: 210px;
         display: grid;
         place-items: center;
         overflow: hidden;
@@ -751,19 +719,6 @@
           padding: 10px;
         }
 
-        .date-filters {
-          flex: 1 1 100%;
-          flex-wrap: wrap;
-        }
-
-        .date-field {
-          flex: 1 1 150px;
-        }
-
-        .date-input {
-          width: 100%;
-        }
-
         .statusbar {
           padding: 0 10px;
         }
@@ -820,7 +775,8 @@
         }
 
         .preview {
-          height: 190px;
+          min-height: 0;
+          aspect-ratio: 4 / 3;
         }
 
         .statusbar {
@@ -896,18 +852,6 @@
           <button class="filter-button" data-filter="image" type="button" aria-pressed="false">图片</button>
         </div>
 
-        <div class="date-filters" aria-label="捕获日期筛选">
-          <label class="date-field">
-            <span class="date-label">开始</span>
-            <input class="date-input start-date" type="date" title="开始日期" />
-          </label>
-          <label class="date-field">
-            <span class="date-label">结束</span>
-            <input class="date-input end-date" type="date" title="结束日期" />
-          </label>
-          <button class="tool-button clear-filter-button" type="button" title="清除类型和日期筛选">清除筛选</button>
-        </div>
-
         <div class="toolbar-actions">
           <button class="tool-button select-all-button" type="button" title="选择当前筛选结果中的全部资源">全选当前结果</button>
           <button class="tool-button clear-selection-button" type="button" title="取消全部资源选择">取消选择</button>
@@ -947,9 +891,6 @@
   const settingsButton = shadow.querySelector(".settings-button");
   const settingsPopover = shadow.querySelector(".settings-popover");
   const filterButtons = Array.from(shadow.querySelectorAll(".filter-button"));
-  const startDateInput = shadow.querySelector(".start-date");
-  const endDateInput = shadow.querySelector(".end-date");
-  const clearFilterButton = shadow.querySelector(".clear-filter-button");
   const selectAllButton = shadow.querySelector(".select-all-button");
   const clearSelectionButton = shadow.querySelector(".clear-selection-button");
   const downloadSelectedButton = shadow.querySelector(".download-selected");
@@ -1014,26 +955,6 @@
       updateFilterUI();
       render();
     });
-  });
-
-  startDateInput.addEventListener("change", () => {
-    dateStart = startDateInput.value;
-    render();
-  });
-
-  endDateInput.addEventListener("change", () => {
-    dateEnd = endDateInput.value;
-    render();
-  });
-
-  clearFilterButton.addEventListener("click", () => {
-    activeFilter = "all";
-    dateStart = "";
-    dateEnd = "";
-    startDateInput.value = "";
-    endDateInput.value = "";
-    updateFilterUI();
-    render();
   });
 
   selectAllButton.addEventListener("click", () => {
@@ -1451,16 +1372,8 @@
   }
 
   function getFilteredItems() {
-    const startMs = dateStart ? new Date(`${dateStart}T00:00:00`).getTime() : 0;
-    const endMs = dateEnd ? new Date(`${dateEnd}T23:59:59`).getTime() : Number.POSITIVE_INFINITY;
-
     return Array.from(items.values()).filter((item) => {
-      if (activeFilter !== "all" && item.type !== activeFilter) {
-        return false;
-      }
-
-      const capturedAt = item.capturedAt || 0;
-      return capturedAt >= startMs && capturedAt <= endMs;
+      return activeFilter === "all" || item.type === activeFilter;
     });
   }
 
