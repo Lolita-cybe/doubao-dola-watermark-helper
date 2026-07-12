@@ -501,7 +501,9 @@
 
       .grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(240px, 280px));
+        justify-content: start;
+        align-items: start;
         gap: 12px;
       }
 
@@ -552,8 +554,7 @@
         position: relative;
         width: 100%;
         height: auto;
-        aspect-ratio: 4 / 3;
-        min-height: 210px;
+        aspect-ratio: var(--media-aspect, 9 / 16);
         display: grid;
         place-items: center;
         overflow: hidden;
@@ -685,10 +686,6 @@
       }
 
       @media (max-width: 860px) {
-        .grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
         .toolbar-actions {
           flex-basis: 100%;
           justify-content: flex-start;
@@ -771,12 +768,11 @@
         }
 
         .grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 280px);
         }
 
         .preview {
-          min-height: 0;
-          aspect-ratio: 4 / 3;
+          aspect-ratio: var(--media-aspect, 9 / 16);
         }
 
         .statusbar {
@@ -1201,6 +1197,9 @@
       image.src = item.url;
       image.alt = `无水印图片 ${index + 1}`;
       image.loading = "lazy";
+      image.addEventListener("load", () => {
+        updatePreviewAspect(preview, image.naturalWidth, image.naturalHeight);
+      }, { once: true });
       preview.append(image);
     } else {
       const video = document.createElement("video");
@@ -1209,6 +1208,9 @@
       video.muted = true;
       video.preload = "metadata";
       video.playsInline = true;
+      video.addEventListener("loadedmetadata", () => {
+        updatePreviewAspect(preview, video.videoWidth, video.videoHeight);
+      }, { once: true });
       preview.append(video);
     }
 
@@ -1246,6 +1248,12 @@
     body.append(meta, actions);
     card.append(checkWrap, preview, body);
     return card;
+  }
+
+  function updatePreviewAspect(preview, width, height) {
+    if (width > 0 && height > 0) {
+      preview.style.setProperty("--media-aspect", `${width} / ${height}`);
+    }
   }
 
   async function copyUrl(url, button) {
