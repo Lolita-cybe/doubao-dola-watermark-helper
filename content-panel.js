@@ -6,7 +6,7 @@
   const selectedUrls = new Set();
   let currentSourceKey = "";
   let statusText = "等待捕获资源";
-  let isCollapsed = false;
+  let panelState = "open";
   let activeFilter = "all";
   let dateStart = "";
   let dateEnd = "";
@@ -346,6 +346,11 @@
         background: #fff;
       }
 
+      .card.is-selected {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 1px #2563eb;
+      }
+
       .check {
         position: absolute;
         top: 10px;
@@ -437,6 +442,12 @@
         filter: brightness(0.97);
       }
 
+      .ghost-button:disabled, .primary-button:disabled, .quiet-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+        filter: none;
+      }
+
       .empty {
         min-height: 220px;
         display: grid;
@@ -514,12 +525,12 @@
           </label>
         </div>
         <div class="actions">
-          <button class="ghost-button source-button" type="button" title="复制当前资源链接">
+          <button class="ghost-button source-button" type="button" title="复制当前筛选结果中的资源链接" aria-label="复制当前结果" disabled>
             <span aria-hidden="true">◑</span>
-            <span>Source Code</span>
+            <span>复制当前结果</span>
           </button>
-          <button class="icon-button collapse-button" type="button" title="最小化">−</button>
-          <button class="icon-button close-button" type="button" title="关闭">×</button>
+          <button class="icon-button collapse-button" type="button" title="最小化面板" aria-label="最小化面板">−</button>
+          <button class="icon-button close-button" type="button" title="关闭面板" aria-label="关闭面板">×</button>
         </div>
       </header>
 
@@ -537,8 +548,8 @@
           <span>~</span>
           <input class="date-input end-date" type="date" title="结束日期" />
         </div>
-        <button class="primary-button download-selected" type="button">下载选中</button>
-        <button class="quiet-button download-all" type="button">全部下载</button>
+        <button class="primary-button download-selected" type="button" title="下载当前筛选结果中已选中的资源" disabled>下载选中</button>
+        <button class="quiet-button download-all" type="button" title="下载当前筛选结果中的全部资源" disabled>下载当前结果</button>
       </div>
 
       <main class="content">
@@ -563,18 +574,18 @@
   const closeButton = shadow.querySelector(".close-button");
 
   launcher.addEventListener("click", () => {
-    isCollapsed = false;
-    render();
+    panelState = "open";
+    updatePanelVisibility();
   });
 
   collapseButton.addEventListener("click", () => {
-    isCollapsed = true;
-    render();
+    panelState = "minimized";
+    updatePanelVisibility();
   });
 
   closeButton.addEventListener("click", () => {
-    isCollapsed = true;
-    render();
+    panelState = "closed";
+    updatePanelVisibility();
   });
 
   settingToggles.forEach((toggle) => {
@@ -618,10 +629,7 @@
   window.addEventListener("pointerup", endDrag);
 
   downloadSelectedButton.addEventListener("click", () => {
-    const urls = getFilteredItems()
-      .filter((item) => selectedUrls.has(item.url))
-      .map((item) => item.url);
-    downloadUrls(urls);
+    downloadUrls(getSelectedFilteredUrls());
   });
 
   downloadAllButton.addEventListener("click", () => {
@@ -633,14 +641,13 @@
     if (!urls.length) {
       return;
     }
+
+    const label = sourceButton.querySelector("span:last-child");
     try {
-      await navigator.clipboard.writeText(urls.join("\\n"));
-      sourceButton.querySelector("span:last-child").textContent = "Copied";
-      setTimeout(() => {
-        sourceButton.querySelector("span:last-child").textContent = "Source Code";
-      }, 1200);
+      await navigator.clipboard.writeText(urls.join("\n"));
+      showTemporaryText(label, "已复制", "复制当前结果", 1200);
     } catch {
-      downloadUrls(urls);
+      showTemporaryText(label, "复制失败", "复制当前结果", 1600);
     }
   });
 
@@ -657,8 +664,8 @@
     }
 
     if (message.type === "SHOW_PANEL") {
-      isCollapsed = false;
-      render();
+      panelState = "open";
+      updatePanelVisibility();
       return;
     }
 
@@ -753,17 +760,38 @@
   }
 
   function render() {
-    const allItems = Array.from(items.values());
-    launcherCount.textContent = String(allItems.length);
-    shell.classList.toggle("is-hidden", isCollapsed);
-    launcher.classList.toggle("is-visible", isCollapsed);
-    applyPanelPosition();
+    launcherCount.textContent = String(items.size);
+    updatePanelVisibility();
 
     const filteredItems = getFilteredItems();
-    downloadSelectedButton.classList.toggle("is-active", filteredItems.some((item) => selectedUrls.has(item.url)));
-    downloadSelectedButton.textContent = selectedUrls.size ? `下载选中 ${selectedUrls.size}` : "下载选中";
-    downloadAllButton.textContent = filteredItems.length ? `全部下载 ${filteredItems.length}` : "全部下载";
+    updateToolbarState(filteredItems);
+    renderResourceList(filteredItems);
+  }
 
+  function updatePanelVisibility() {
+    shell.classList.toggle("is-hidden", panelState !== "open");
+    launcher.classList.toggle("is-visible", panelState === "minimized");
+    applyPanelPosition();
+  }
+
+  function updateToolbarState(filteredItems = getFilteredItems()) {
+    const selectedCount = filteredItems.reduce(
+      (count, item) => count + (selectedUrls.has(item.url) ? 1 : 0),
+      0
+    );
+
+    downloadSelectedButton.classList.toggle("is-active", selectedCount > 0);
+    downloadSelectedButton.textContent = selectedCount ? `下载选中 ${selectedCount}` : "下载选中";
+    downloadSelectedButton.disabled = selectedCount === 0;
+
+    downloadAllButton.textContent = filteredItems.length
+      ? `下载当前结果 ${filteredItems.length}`
+      : "下载当前结果";
+    downloadAllButton.disabled = filteredItems.length === 0;
+    sourceButton.disabled = filteredItems.length === 0;
+  }
+
+  function renderResourceList(filteredItems) {
     content.textContent = "";
 
     if (!filteredItems.length) {
@@ -787,6 +815,8 @@
   function createCard(item, index) {
     const card = document.createElement("article");
     card.className = "card";
+    card.dataset.resourceUrl = item.url;
+    card.classList.toggle("is-selected", selectedUrls.has(item.url));
 
     const checkbox = document.createElement("input");
     checkbox.className = "check";
@@ -794,12 +824,7 @@
     checkbox.checked = selectedUrls.has(item.url);
     checkbox.title = "选择资源";
     checkbox.addEventListener("change", () => {
-      if (checkbox.checked) {
-        selectedUrls.add(item.url);
-      } else {
-        selectedUrls.delete(item.url);
-      }
-      render();
+      updateSelection(item.url, checkbox.checked, card);
     });
 
     const preview = document.createElement("div");
@@ -840,8 +865,9 @@
     const copyButton = document.createElement("button");
     copyButton.className = "card-button";
     copyButton.type = "button";
-    copyButton.textContent = "链接";
-    copyButton.title = "复制资源链接";
+    copyButton.textContent = "复制链接";
+    copyButton.title = "复制此资源链接";
+    copyButton.setAttribute("aria-label", `复制${item.type === "image" ? "图片" : "视频"}链接`);
     copyButton.addEventListener("click", () => copyUrl(item.url, copyButton));
 
     const downloadButton = document.createElement("button");
@@ -862,16 +888,37 @@
   }
 
   async function copyUrl(url, button) {
+    const originalText = "复制链接";
     try {
       await navigator.clipboard.writeText(url);
-      const oldText = button.textContent;
-      button.textContent = "已复制";
-      setTimeout(() => {
-        button.textContent = oldText;
-      }, 1000);
+      showTemporaryText(button, "已复制", originalText, 1000);
     } catch {
-      downloadUrls([url]);
+      showTemporaryText(button, "复制失败", originalText, 1600);
     }
+  }
+
+  function showTemporaryText(target, temporaryText, originalText, delay) {
+    target.textContent = temporaryText;
+    window.setTimeout(() => {
+      target.textContent = originalText;
+    }, delay);
+  }
+
+  function updateSelection(url, isSelected, card) {
+    if (isSelected) {
+      selectedUrls.add(url);
+    } else {
+      selectedUrls.delete(url);
+    }
+
+    card.classList.toggle("is-selected", isSelected);
+    updateToolbarState();
+  }
+
+  function getSelectedFilteredUrls() {
+    return getFilteredItems()
+      .filter((item) => selectedUrls.has(item.url))
+      .map((item) => item.url);
   }
 
   function getFilteredItems() {
