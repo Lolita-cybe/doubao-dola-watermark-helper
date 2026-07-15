@@ -1,22 +1,20 @@
 # Changelog
 
-## Unreleased
+## 1.6.0
 
-- Added local account notes in the downloader panel.
-- Account notes store aliases, colors, notes, and capture counters in `chrome.storage.local`.
+- Added local account recognition in the downloader panel.
 - Global switches remain shared across all accounts:
   - Enable
   - 15s
   - Watermark-free extraction
-- The account feature does not save cookies, passwords, or session tokens.
 - Added optional local session switching for Doubao / Dola accounts.
 - Added `cookies` permission for saving and restoring local site sessions.
 - Added semi-automatic account discovery:
   - Saved accounts are recognized instead of duplicated.
   - New accounts can be prompted for local session saving.
   - Existing accounts can update their saved session.
-- Removed the account alias, note, and color editor from the panel.
 - Added local session backup export/import.
+- Removed the account alias, note, and color editor from the panel.
 
 ## 1.4.0
 
