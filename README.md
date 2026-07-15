@@ -1,11 +1,11 @@
 # 豆包 / Dola 无水印资源助手
 
-> 一个用于豆包与 Dola 网页端的 Chrome / Edge 浏览器扩展。支持捕获页面接口中的图片、视频资源，提供预览、勾选、批量下载、15 秒配置开关、无水印资源提取、本地账号切换和登录态备份。
+> 一个用于豆包与 Dola 网页端的 Chrome / Edge 浏览器扩展。支持捕获图片、视频资源，提供预览、批量下载、15 秒配置开关、无水印资源提取、多账号本地保存、账号搜索及登录态备份。
 
 [![Manifest V3](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active-brightgreen)](#)
-[![Release](https://img.shields.io/badge/release-v1.6.0-blue)](https://github.com/Lolita-cybe/doubao-dola-watermark-helper/releases/tag/v1.6.0)
+[![Release](https://img.shields.io/badge/release-v1.6.5-blue)](https://github.com/Lolita-cybe/doubao-dola-watermark-helper/releases/tag/v1.6.5)
 
 ## 项目简介
 
@@ -15,7 +15,7 @@
 
 它的核心思路不是对视频画面做后期处理，而是监听网页接口响应，从接口数据中提取可用的原始资源或无水印资源地址。
 
-从 v1.6.0 开始，插件还加入了本地账号管理能力：可以识别当前豆包账号，保存本机登录态，在已保存账号之间切换，并支持导入 / 导出本地登录态备份。
+插件还提供本地多账号管理：可识别当前豆包账号、自动发现新账号并提示保存、在已保存账号之间切换；账号列表支持按名称搜索和滚动浏览。登录态备份可导入 / 导出，数据只保存在本机浏览器中。
 
 > 请仅用于你自己生成、拥有版权或已获得授权的内容。使用者需要自行遵守豆包、Dola、浏览器平台规则以及所在地法律法规。
 
@@ -38,10 +38,12 @@
   - 已保存账号再次登录时不会重复保存。
   - 支持更新当前账号登录态。
   - 支持在已保存账号之间切换。
+  - 支持按账号名称搜索和筛选已保存账号。
+  - 支持保存多个账号，列表可滚动浏览。
 - 备份与恢复：
   - 支持导出本地登录态 JSON 备份。
   - 支持导入备份恢复账号列表。
-- 持久化设置：开关状态和账号登录态保存到浏览器本地存储。
+- 持久化设置：开关状态和账号登录态保存到浏览器本地存储；已启用扩展存储容量以适配多账号备份。
 
 ## 安装方式
 

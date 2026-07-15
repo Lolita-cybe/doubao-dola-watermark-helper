@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.5
+
+- Added account-name search for filtering the saved multi-account list.
+
+## 1.6.4
+
+- Added unlimited local storage permission for multi-account session backups.
+- Limited per-account webpage storage snapshots to avoid large page caches exhausting extension storage.
+- Replaced the raw browser quota error with a clear Chinese recovery message.
+
 ## 1.6.3
 
 - Fixed account names that include product words such as `豆包大王10号` being filtered as non-account text.

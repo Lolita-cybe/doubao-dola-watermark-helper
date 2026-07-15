@@ -462,8 +462,18 @@
         align-items: start;
       }
 
+      .session-profile-browser {
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .session-profile-search {
+        width: 100%;
+      }
+
       .session-profile-select {
-        height: 154px;
+        height: 112px;
         padding: 6px;
         overflow-y: auto;
       }
@@ -1061,9 +1071,12 @@
           <div class="account-session-status">正在检查当前账号</div>
         </div>
         <div class="session-tools">
-          <select class="account-field session-profile-select" aria-label="已保存的登录态" size="6">
-            <option value="">暂无已保存登录态</option>
-          </select>
+          <div class="session-profile-browser">
+            <input class="account-field session-profile-search" type="search" placeholder="搜索账号名称" aria-label="搜索账号名称" autocomplete="off" />
+            <select class="account-field session-profile-select" aria-label="已保存的登录态" size="5">
+              <option value="">暂无已保存登录态</option>
+            </select>
+          </div>
           <button class="secondary-button session-save-button" type="button">保存当前登录态</button>
           <button class="primary-button session-restore-button" type="button" disabled>切换登录态</button>
           <button class="tool-button session-delete-button" type="button" disabled>删除</button>
@@ -1138,6 +1151,7 @@
   const accountNoteInput = shadow.querySelector(".account-note-input");
   const accountColorSelect = shadow.querySelector(".account-color-select");
   const accountSaveButton = shadow.querySelector(".account-save-button");
+  const sessionProfileSearch = shadow.querySelector(".session-profile-search");
   const sessionProfileSelect = shadow.querySelector(".session-profile-select");
   const sessionSaveButton = shadow.querySelector(".session-save-button");
   const sessionSaveNewButton = document.createElement("button");
@@ -1150,6 +1164,7 @@
   const accountSessionStatus = shadow.querySelector(".account-session-status");
   let toastTimer = null;
   let sessionProfiles = [];
+  let sessionProfileQuery = "";
   const promptedAccountIds = new Set();
 
   setupBackupControls();
@@ -1186,6 +1201,10 @@
   });
 
   sessionProfileSelect.addEventListener("change", updateSessionButtons);
+  sessionProfileSearch.addEventListener("input", () => {
+    sessionProfileQuery = sessionProfileSearch.value.trim();
+    renderSessionProfiles(sessionProfileSelect.value);
+  });
   sessionSaveButton.addEventListener("click", saveCurrentSessionProfile);
   sessionSaveNewButton.addEventListener("click", () => saveCurrentSessionProfile({ forceNew: true }));
   sessionRestoreButton.addEventListener("click", restoreSelectedSessionProfile);
@@ -1473,12 +1492,12 @@
       name,
       accountId: accountProfile.id,
       url: location.href,
-      localStorage: collectStorage(window.localStorage),
-      sessionStorage: collectStorage(window.sessionStorage)
+      localStorage: collectSessionStorage(window.localStorage),
+      sessionStorage: collectSessionStorage(window.sessionStorage)
     }, (response) => {
       sessionSaveButton.disabled = false;
       if (!response?.ok) {
-        showToast(response?.error || "保存登录态失败", "error");
+        showToast(formatSessionSaveError(response?.error), "error");
         return;
       }
       sessionProfiles = response.profiles || [];
@@ -1591,6 +1610,10 @@
     sessionProfileSelect.textContent = "";
     const currentProfile = getProfileForCurrentAccount();
     const currentName = accountProfile?.detectedName || "当前账号";
+    const normalizedQuery = normalizeName(sessionProfileQuery);
+    const filteredProfiles = sessionProfiles.filter((profile) => (
+      !normalizedQuery || normalizeName(profile.name).includes(normalizedQuery)
+    ));
     const effectiveSelectedId = selectedId || currentProfile?.id || "";
     if (!sessionProfiles.length) {
       const option = document.createElement("option");
@@ -1601,21 +1624,27 @@
       return;
     }
 
-    if (!currentProfile && accountProfile?.id) {
+    const shouldShowCurrent = !normalizedQuery || normalizeName(currentName).includes(normalizedQuery);
+    if (!currentProfile && accountProfile?.id && shouldShowCurrent) {
       const currentOption = document.createElement("option");
       currentOption.value = "";
       currentOption.textContent = `当前未保存：${currentName} · 点击“另存当前账号”`;
       sessionProfileSelect.append(currentOption);
     }
 
-    for (const profile of sessionProfiles) {
+    for (const profile of filteredProfiles) {
       const option = document.createElement("option");
       option.value = profile.id;
       option.textContent = `${profile.name} · ${formatShortTime(profile.savedAt)} · ${profile.cookieCount || 0} cookies`;
       sessionProfileSelect.append(option);
     }
 
-    if (effectiveSelectedId) {
+    if (!sessionProfileSelect.options.length) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = `未找到名称包含“${sessionProfileQuery}”的账号`;
+      sessionProfileSelect.append(option);
+    } else if (effectiveSelectedId && Array.from(sessionProfileSelect.options).some((option) => option.value === effectiveSelectedId)) {
       sessionProfileSelect.value = effectiveSelectedId;
     }
     updateSessionButtons();
@@ -1676,13 +1705,30 @@
     return String(value || "").trim().toLowerCase();
   }
 
-  function collectStorage(storage) {
+  function formatSessionSaveError(error) {
+    const message = String(error || "");
+    if (/quota|QuotaBytes|QUOTA_BYTES/i.test(message)) {
+      return "本地存储空间不足。请重新加载插件后再保存；新版本已扩展账号备份容量。";
+    }
+    return message || "保存登录态失败";
+  }
+
+  function collectSessionStorage(storage) {
     const data = {};
+    const maxEntryBytes = 64 * 1024;
+    const maxTotalBytes = 512 * 1024;
+    let totalBytes = 0;
     try {
       for (let i = 0; i < storage.length; i += 1) {
         const key = storage.key(i);
         if (key) {
-          data[key] = storage.getItem(key);
+          const value = storage.getItem(key);
+          const entryBytes = String(key).length + String(value || "").length;
+          if (entryBytes > maxEntryBytes || totalBytes + entryBytes > maxTotalBytes) {
+            continue;
+          }
+          data[key] = value;
+          totalBytes += entryBytes;
         }
       }
     } catch {
