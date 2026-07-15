@@ -1130,6 +1130,7 @@
   const accountSaveButton = shadow.querySelector(".account-save-button");
   const sessionProfileSelect = shadow.querySelector(".session-profile-select");
   const sessionSaveButton = shadow.querySelector(".session-save-button");
+  const sessionSaveNewButton = document.createElement("button");
   const sessionRestoreButton = shadow.querySelector(".session-restore-button");
   const sessionDeleteButton = shadow.querySelector(".session-delete-button");
   const backupExportButton = document.createElement("button");
@@ -1176,6 +1177,7 @@
 
   sessionProfileSelect.addEventListener("change", updateSessionButtons);
   sessionSaveButton.addEventListener("click", saveCurrentSessionProfile);
+  sessionSaveNewButton.addEventListener("click", () => saveCurrentSessionProfile({ forceNew: true }));
   sessionRestoreButton.addEventListener("click", restoreSelectedSessionProfile);
   sessionDeleteButton.addEventListener("click", deleteSelectedSessionProfile);
   backupExportButton.addEventListener("click", exportSessionBackup);
@@ -1335,6 +1337,11 @@
     backupFileInput.type = "file";
     backupFileInput.accept = "application/json,.json";
 
+    sessionSaveNewButton.className = "secondary-button session-save-new-button";
+    sessionSaveNewButton.type = "button";
+    sessionSaveNewButton.textContent = "另存当前账号";
+
+    sessionSaveButton.insertAdjacentElement("afterend", sessionSaveNewButton);
     sessionDeleteButton.insertAdjacentElement("afterend", backupExportButton);
     backupExportButton.insertAdjacentElement("afterend", backupImportButton);
     backupImportButton.insertAdjacentElement("afterend", backupFileInput);
@@ -1434,7 +1441,7 @@
 
   async function saveCurrentSessionProfile(options = {}) {
     const name = accountProfile?.detectedName || "未命名账号";
-    const profileId = options.profileId || getProfileForCurrentAccount()?.id || "";
+    const profileId = options.forceNew ? "" : (options.profileId || getProfileForCurrentAccount()?.id || "");
     if (!options.skipConfirm) {
       const confirmed = window.confirm(profileId
         ? `更新「${name}」的本机登录态？`

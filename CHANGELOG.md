@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.2
+
+- Added "save as current account" support so multiple Doubao accounts can be recorded without overwriting the detected current account profile.
+
 ## 1.6.1
 
 - Fixed account recognition priority so the left-sidebar logged-in account is used before generic page text.
