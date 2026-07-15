@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.1
+
+- Fixed account recognition priority so the left-sidebar logged-in account is used before generic page text.
+- Filtered chat prompt text such as "有什么我能帮你的吗？" from account-name candidates.
+
 ## 1.6.0
 
 - Added local account recognition in the downloader panel.

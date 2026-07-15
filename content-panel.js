@@ -1693,8 +1693,9 @@
 
   function detectCurrentAccount() {
     const storedIdentity = findStoredAccountIdentity();
+    const sidebarName = findSidebarAccountName();
     const visibleName = findVisibleAccountName();
-    const name = storedIdentity.name || visibleName || "当前账号";
+    const name = sidebarName || storedIdentity.name || visibleName || "当前账号";
     const rawId = storedIdentity.id || storedIdentity.tokenHint || name || location.hostname;
     return {
       id: `account_${hashString(`${location.hostname}:${rawId}`)}`,
@@ -1737,6 +1738,11 @@
   }
 
   function findVisibleAccountName() {
+    const sidebarName = findSidebarAccountName();
+    if (sidebarName) {
+      return sidebarName;
+    }
+
     const selectors = [
       "[class*='user'] [title]",
       "[class*='account'] [title]",
@@ -1757,7 +1763,7 @@
       }
     }
 
-    return findSidebarAccountName();
+    return "";
   }
 
   function findSidebarAccountName() {
@@ -1803,6 +1809,9 @@
 
   function isUsefulAccountName(value) {
     if (!value || value.length < 2 || value.length > 24) {
+      return false;
+    }
+    if (/有什么|我能帮|帮你|提示词|生成|建议|问题|回答|新对话|主对话|\?|\？/.test(value)) {
       return false;
     }
     return !/豆包|Dola|logo|avatar|image|icon|搜索|下载|新对话|新办公任务|AI 创作|云盘|更多|收藏夹|文件夹|历史对话|主对话|Ctrl|Shift|全部|视频|图片|资源|助手|备注|保存/i.test(value);
