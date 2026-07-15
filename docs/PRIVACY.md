@@ -44,3 +44,24 @@ Host 权限限制在：
 - `*.doubao.com`
 - `*.dola.com`
 - `*.byteintlapi.com`
+
+## Account notes
+
+The local account notes feature stores only helper metadata in `chrome.storage.local`:
+
+- Account alias.
+- Account note.
+- Account color.
+- Last seen time and captured resource count.
+
+It does not store account passwords, raw cookies, exported cookies, or raw session tokens. The 15-second configuration switch and watermark-free resource switch remain global extension settings shared by all accounts.
+
+## Local session switching
+
+If the optional local session switching feature is used, the extension stores the selected Doubao / Dola site's cookies, localStorage, and sessionStorage in `chrome.storage.local` so the user can restore that session later on the same computer.
+
+This data is not uploaded by the extension and is not exported by the UI. It is sensitive local login-state data, so users should only save sessions for accounts they control on a trusted computer.
+
+The semi-automatic discovery option only checks the currently visible account identity on the active Doubao / Dola page and compares it with locally saved session profiles. It does not scan other browser profiles or upload account information.
+
+Backup export/import is local. Exported backup files contain saved login-state data and should be stored privately. The extension does not upload backup files.

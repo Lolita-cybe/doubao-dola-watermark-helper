@@ -1,6 +1,8 @@
 (function () {
   const PANEL_ID = "watermark-free-media-panel";
   const DOUBAO_PLAY_INFO_URL = "https://www.doubao.com/samantha/media/get_play_info?version_code=20800&language=zh-CN&device_platform=web&aid=497858&real_aid=497858&pkg_type=release_version&device_id=&pc_version=2.51.7&region=&sys_region=&samantha_web=1&use-olympus-account=1&web_tab_id=";
+  const ACCOUNT_STORAGE_KEY = "doubaoDolaHelperAccounts";
+  const AUTO_DISCOVERY_STORAGE_KEY = "doubaoDolaHelperAutoDiscovery";
 
   const items = new Map();
   const selectedUrls = new Set();
@@ -16,6 +18,9 @@
     duration15Enabled: true,
     watermarkEnabled: true
   };
+  let accountProfile = null;
+  let accountsById = {};
+  let autoDiscoveryEnabled = true;
 
   if (document.getElementById(PANEL_ID)) {
     return;
@@ -342,6 +347,162 @@
       .switch input:focus-visible + .switch-track {
         outline: 2px solid rgba(37, 99, 235, 0.32);
         outline-offset: 2px;
+      }
+
+      .account-panel {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+
+      .account-avatar {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        color: #fff;
+        background: var(--account-color, #2563eb);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .account-copy {
+        min-width: 0;
+      }
+
+      .account-title {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .account-name {
+        min-width: 0;
+        overflow: hidden;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .account-chip {
+        flex: 0 0 auto;
+        height: 20px;
+        padding: 0 7px;
+        border-radius: 999px;
+        color: var(--success);
+        background: #ecfdf3;
+        font-size: 11px;
+        line-height: 20px;
+        font-weight: 700;
+      }
+
+      .account-meta {
+        margin-top: 2px;
+        overflow: hidden;
+        color: var(--text-secondary);
+        font-size: 11px;
+        line-height: 16px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .account-editor,
+      .account-session-panel {
+        display: none;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-subtle);
+      }
+
+      .account-editor.is-open,
+      .account-session-panel.is-open {
+        display: grid;
+      }
+
+      .account-alias-input,
+      .account-note-input,
+      .account-color-select,
+      .account-save-button {
+        display: none;
+      }
+
+      .account-field {
+        min-width: 0;
+        height: var(--control-height);
+        padding: 0 10px;
+        color: var(--text);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-small);
+        font-size: 12px;
+      }
+
+      .account-field::placeholder {
+        color: var(--text-muted);
+      }
+
+      select.account-field {
+        cursor: pointer;
+      }
+
+      .session-tools {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto auto auto auto;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .backup-file-input {
+        display: none;
+      }
+
+      .auto-discovery-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px 12px;
+      }
+
+      .auto-discovery-toggle {
+        min-height: 28px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+
+      .auto-discovery-toggle input {
+        width: 15px;
+        height: 15px;
+        margin: 0;
+        accent-color: var(--primary);
+      }
+
+      .account-session-status {
+        min-width: 0;
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 18px;
+      }
+
+      .session-warning {
+        color: var(--text-secondary);
+        font-size: 11px;
+        line-height: 16px;
       }
 
       .toolbar {
@@ -762,6 +923,24 @@
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
+        .account-panel {
+          grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .account-edit-button {
+          grid-column: 1 / -1;
+          width: 100%;
+        }
+
+        .account-session-panel {
+          grid-template-columns: 1fr;
+          padding: 10px;
+        }
+
+        .session-tools {
+          grid-template-columns: 1fr;
+        }
+
         .toolbar-actions .primary-button,
         .toolbar-actions .secondary-button {
           width: 100%;
@@ -841,6 +1020,47 @@
         </label>
       </aside>
 
+      <section class="account-panel" aria-label="账号管理">
+        <div class="account-avatar" aria-hidden="true">?</div>
+        <div class="account-copy">
+          <div class="account-title">
+            <span class="account-name">正在识别当前账号</span>
+            <span class="account-chip">本地记录</span>
+          </div>
+          <div class="account-meta">15 秒配置和无水印资源开关为所有账号共享</div>
+        </div>
+        <button class="tool-button account-edit-button" type="button">账号备注</button>
+      </section>
+
+      <section class="account-editor" aria-label="账号备注编辑">
+        <input class="account-field account-alias-input" type="text" maxlength="32" placeholder="账号别名，例如：主号 / 客户 A" />
+        <input class="account-field account-note-input" type="text" maxlength="80" placeholder="备注，例如：视频生成 / 测试账号" />
+        <select class="account-field account-color-select" aria-label="账号颜色">
+          <option value="#2563eb">蓝色</option>
+          <option value="#16803d">绿色</option>
+          <option value="#c2410c">橙色</option>
+          <option value="#7c3aed">紫色</option>
+          <option value="#475467">灰色</option>
+        </select>
+        <button class="primary-button account-save-button" type="button">保存</button>
+        <div class="auto-discovery-row">
+          <label class="auto-discovery-toggle">
+            <input class="auto-discovery-checkbox" type="checkbox" checked />
+            <span>自动发现新账号并提示保存</span>
+          </label>
+          <div class="account-session-status">正在检查当前账号</div>
+        </div>
+        <div class="session-tools">
+          <select class="account-field session-profile-select" aria-label="已保存的登录态">
+            <option value="">暂无已保存登录态</option>
+          </select>
+          <button class="secondary-button session-save-button" type="button">保存当前登录态</button>
+          <button class="primary-button session-restore-button" type="button" disabled>切换登录态</button>
+          <button class="tool-button session-delete-button" type="button" disabled>删除</button>
+          <div class="session-warning">高级功能：仅保存在本机。切换会替换当前豆包/Dola 登录状态并刷新页面。</div>
+        </div>
+      </section>
+
       <div class="toolbar">
         <div class="filter-tabs" role="group" aria-label="资源类型筛选">
           <button class="filter-button is-active" data-filter="all" type="button" aria-pressed="true">全部</button>
@@ -898,7 +1118,30 @@
   const toast = shadow.querySelector(".toast");
   const collapseButton = shadow.querySelector(".collapse-button");
   const closeButton = shadow.querySelector(".close-button");
+  const accountPanel = shadow.querySelector(".account-panel");
+  const accountAvatar = shadow.querySelector(".account-avatar");
+  const accountName = shadow.querySelector(".account-name");
+  const accountMeta = shadow.querySelector(".account-meta");
+  const accountEditor = shadow.querySelector(".account-editor");
+  const accountEditButton = shadow.querySelector(".account-edit-button");
+  const accountAliasInput = shadow.querySelector(".account-alias-input");
+  const accountNoteInput = shadow.querySelector(".account-note-input");
+  const accountColorSelect = shadow.querySelector(".account-color-select");
+  const accountSaveButton = shadow.querySelector(".account-save-button");
+  const sessionProfileSelect = shadow.querySelector(".session-profile-select");
+  const sessionSaveButton = shadow.querySelector(".session-save-button");
+  const sessionRestoreButton = shadow.querySelector(".session-restore-button");
+  const sessionDeleteButton = shadow.querySelector(".session-delete-button");
+  const backupExportButton = document.createElement("button");
+  const backupImportButton = document.createElement("button");
+  const backupFileInput = document.createElement("input");
+  const autoDiscoveryCheckbox = shadow.querySelector(".auto-discovery-checkbox");
+  const accountSessionStatus = shadow.querySelector(".account-session-status");
   let toastTimer = null;
+  let sessionProfiles = [];
+  const promptedAccountIds = new Set();
+
+  setupBackupControls();
 
   launcher.addEventListener("click", () => {
     panelState = "open";
@@ -914,6 +1157,30 @@
     panelState = "closed";
     updatePanelVisibility();
   });
+
+  accountEditButton.addEventListener("click", () => {
+    accountEditor.classList.toggle("is-open");
+  });
+  accountEditButton.textContent = "账号管理";
+
+  accountSaveButton.addEventListener("click", () => {
+    saveAccountProfile();
+  });
+
+  autoDiscoveryCheckbox.addEventListener("change", () => {
+    autoDiscoveryEnabled = autoDiscoveryCheckbox.checked;
+    chrome.storage.local.set({ [AUTO_DISCOVERY_STORAGE_KEY]: autoDiscoveryEnabled });
+    updateAccountSessionStatus();
+    maybePromptSaveDetectedAccount();
+  });
+
+  sessionProfileSelect.addEventListener("change", updateSessionButtons);
+  sessionSaveButton.addEventListener("click", saveCurrentSessionProfile);
+  sessionRestoreButton.addEventListener("click", restoreSelectedSessionProfile);
+  sessionDeleteButton.addEventListener("click", deleteSelectedSessionProfile);
+  backupExportButton.addEventListener("click", exportSessionBackup);
+  backupImportButton.addEventListener("click", () => backupFileInput.click());
+  backupFileInput.addEventListener("change", importSessionBackup);
 
   settingsButton.addEventListener("click", () => {
     setSettingsOpen(!settingsPopover.classList.contains("is-open"));
@@ -1004,6 +1271,10 @@
     }
   });
 
+  loadAccountProfile();
+  loadAutoDiscoverySetting();
+  loadSessionProfiles();
+
   chrome.runtime.onMessage.addListener((message) => {
     if (!message) {
       return;
@@ -1045,6 +1316,535 @@
       fetchDoubaoVideos(message.sourceKey, message.vids);
     }
   });
+
+  function setupBackupControls() {
+    const sessionTools = shadow.querySelector(".session-tools");
+    if (!sessionTools) {
+      return;
+    }
+
+    backupExportButton.className = "tool-button backup-export-button";
+    backupExportButton.type = "button";
+    backupExportButton.textContent = "导出备份";
+
+    backupImportButton.className = "tool-button backup-import-button";
+    backupImportButton.type = "button";
+    backupImportButton.textContent = "导入备份";
+
+    backupFileInput.className = "backup-file-input";
+    backupFileInput.type = "file";
+    backupFileInput.accept = "application/json,.json";
+
+    sessionDeleteButton.insertAdjacentElement("afterend", backupExportButton);
+    backupExportButton.insertAdjacentElement("afterend", backupImportButton);
+    backupImportButton.insertAdjacentElement("afterend", backupFileInput);
+  }
+
+  async function loadAccountProfile() {
+    const detected = detectCurrentAccount();
+    try {
+      const stored = await chrome.storage.local.get(ACCOUNT_STORAGE_KEY);
+      accountsById = stored[ACCOUNT_STORAGE_KEY] || {};
+    } catch {
+      accountsById = {};
+    }
+
+    const existing = accountsById[detected.id] || {};
+    accountProfile = {
+      id: detected.id,
+      detectedName: detected.name,
+      alias: existing.alias || "",
+      note: existing.note || "",
+      color: existing.color || "#2563eb",
+      firstSeenAt: existing.firstSeenAt || Date.now(),
+      lastSeenAt: Date.now(),
+      lastCapturedAt: existing.lastCapturedAt || 0,
+      capturedCount: Number(existing.capturedCount || 0)
+    };
+    accountsById[accountProfile.id] = accountProfile;
+    await persistAccounts();
+    renderAccountProfile();
+    updateAccountSessionStatus();
+    maybePromptSaveDetectedAccount();
+  }
+
+  async function loadAutoDiscoverySetting() {
+    try {
+      const stored = await chrome.storage.local.get(AUTO_DISCOVERY_STORAGE_KEY);
+      autoDiscoveryEnabled = stored[AUTO_DISCOVERY_STORAGE_KEY] !== false;
+    } catch {
+      autoDiscoveryEnabled = true;
+    }
+    autoDiscoveryCheckbox.checked = autoDiscoveryEnabled;
+    updateAccountSessionStatus();
+    maybePromptSaveDetectedAccount();
+  }
+
+  async function saveAccountProfile() {
+    if (!accountProfile) {
+      return;
+    }
+
+    accountProfile = {
+      ...accountProfile,
+      alias: accountAliasInput.value.trim(),
+      note: accountNoteInput.value.trim(),
+      color: accountColorSelect.value || "#2563eb",
+      lastSeenAt: Date.now()
+    };
+    accountsById[accountProfile.id] = accountProfile;
+    await persistAccounts();
+    renderAccountProfile();
+    accountEditor.classList.remove("is-open");
+    showToast("账号备注已保存", "success");
+  }
+
+  async function noteAccountCapture(count) {
+    if (!accountProfile || count <= 0) {
+      return;
+    }
+
+    accountProfile = {
+      ...accountProfile,
+      capturedCount: Number(accountProfile.capturedCount || 0) + count,
+      lastCapturedAt: Date.now(),
+      lastSeenAt: Date.now()
+    };
+    accountsById[accountProfile.id] = accountProfile;
+    renderAccountProfile();
+    try {
+      await persistAccounts();
+    } catch {
+      // Account notes are best-effort only; resource capture should not fail.
+    }
+  }
+
+  async function persistAccounts() {
+    await chrome.storage.local.set({ [ACCOUNT_STORAGE_KEY]: accountsById });
+  }
+
+  async function loadSessionProfiles() {
+    chrome.runtime.sendMessage({ type: "GET_SESSION_PROFILES" }, (response) => {
+      sessionProfiles = Array.isArray(response?.profiles) ? response.profiles : [];
+      renderSessionProfiles();
+      updateAccountSessionStatus();
+      maybePromptSaveDetectedAccount();
+    });
+  }
+
+  async function saveCurrentSessionProfile(options = {}) {
+    const name = accountProfile?.detectedName || "未命名账号";
+    const profileId = options.profileId || getProfileForCurrentAccount()?.id || "";
+    if (!options.skipConfirm) {
+      const confirmed = window.confirm(profileId
+        ? `更新「${name}」的本机登录态？`
+        : `保存「${name}」的当前豆包/Dola 登录态到本机？`);
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    if (!accountProfile?.id) {
+      showToast("未识别到当前账号", "error");
+      return;
+    }
+
+    sessionSaveButton.disabled = true;
+    chrome.runtime.sendMessage({
+      type: "SAVE_SESSION_PROFILE",
+      profileId,
+      name,
+      accountId: accountProfile.id,
+      url: location.href,
+      localStorage: collectStorage(window.localStorage),
+      sessionStorage: collectStorage(window.sessionStorage)
+    }, (response) => {
+      sessionSaveButton.disabled = false;
+      if (!response?.ok) {
+        showToast(response?.error || "保存登录态失败", "error");
+        return;
+      }
+      sessionProfiles = response.profiles || [];
+      renderSessionProfiles(response.profile?.id);
+      updateAccountSessionStatus();
+      showToast(profileId ? "当前登录态已更新" : "当前登录态已保存", "success");
+    });
+  }
+
+  async function restoreSelectedSessionProfile() {
+    const profileId = sessionProfileSelect.value;
+    const profile = sessionProfiles.find((item) => item.id === profileId);
+    if (!profile) {
+      return;
+    }
+
+    const confirmed = window.confirm(`切换到「${profile.name}」？当前豆包/Dola 登录状态会被替换，页面会自动刷新。`);
+    if (!confirmed) {
+      return;
+    }
+
+    sessionRestoreButton.disabled = true;
+    chrome.runtime.sendMessage({
+      type: "RESTORE_SESSION_PROFILE",
+      profileId,
+      url: location.href
+    }, (response) => {
+      if (!response?.ok) {
+        sessionRestoreButton.disabled = false;
+        updateSessionButtons();
+        showToast(response?.error || "切换登录态失败", "error");
+        return;
+      }
+
+      restoreStorage(window.localStorage, response.localStorage);
+      restoreStorage(window.sessionStorage, response.sessionStorage);
+      showToast("登录态已切换，正在刷新", "success");
+      window.setTimeout(() => window.location.reload(), 500);
+    });
+  }
+
+  async function deleteSelectedSessionProfile() {
+    const profileId = sessionProfileSelect.value;
+    const profile = sessionProfiles.find((item) => item.id === profileId);
+    if (!profile || !window.confirm(`删除本机保存的「${profile.name}」登录态？`)) {
+      return;
+    }
+
+    chrome.runtime.sendMessage({ type: "DELETE_SESSION_PROFILE", profileId }, (response) => {
+      if (!response?.ok) {
+        showToast(response?.error || "删除登录态失败", "error");
+        return;
+      }
+      sessionProfiles = response.profiles || [];
+      renderSessionProfiles();
+      showToast("登录态已删除", "success");
+    });
+  }
+
+  async function exportSessionBackup() {
+    if (!sessionProfiles.length) {
+      showToast("暂无可导出的登录态", "error");
+      return;
+    }
+    const confirmed = window.confirm("导出的备份包含本机登录态，等同账号钥匙。请只保存在自己的电脑，不要发送给别人。继续导出？");
+    if (!confirmed) {
+      return;
+    }
+
+    chrome.runtime.sendMessage({ type: "EXPORT_SESSION_BACKUP" }, (response) => {
+      if (!response?.ok) {
+        showToast(response?.error || "导出备份失败", "error");
+        return;
+      }
+      showToast(`已导出 ${response.count || 0} 个登录态`, "success");
+    });
+  }
+
+  async function importSessionBackup(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) {
+      return;
+    }
+
+    const confirmed = window.confirm("导入备份会把文件中的登录态合并到本机账号列表。请确认这是你自己的备份文件。继续导入？");
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+      chrome.runtime.sendMessage({ type: "IMPORT_SESSION_BACKUP", backup }, (response) => {
+        if (!response?.ok) {
+          showToast(response?.error || "导入备份失败", "error");
+          return;
+        }
+        sessionProfiles = response.profiles || [];
+        renderSessionProfiles();
+        updateAccountSessionStatus();
+        showToast(`已导入，当前共 ${sessionProfiles.length} 个登录态`, "success");
+      });
+    } catch {
+      showToast("备份文件不是有效 JSON", "error");
+    }
+  }
+
+  function renderSessionProfiles(selectedId = "") {
+    sessionProfileSelect.textContent = "";
+    if (!sessionProfiles.length) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "暂无已保存登录态";
+      sessionProfileSelect.append(option);
+      updateSessionButtons();
+      return;
+    }
+
+    for (const profile of sessionProfiles) {
+      const option = document.createElement("option");
+      option.value = profile.id;
+      option.textContent = `${profile.name} · ${formatShortTime(profile.savedAt)} · ${profile.cookieCount || 0} cookies`;
+      sessionProfileSelect.append(option);
+    }
+
+    if (selectedId) {
+      sessionProfileSelect.value = selectedId;
+    }
+    updateSessionButtons();
+  }
+
+  function getProfileForCurrentAccount() {
+    if (!accountProfile?.id) {
+      return null;
+    }
+    return sessionProfiles.find((profile) => profile.accountId === accountProfile.id)
+      || sessionProfiles.find((profile) => normalizeName(profile.name) === normalizeName(accountProfile.detectedName));
+  }
+
+  function updateAccountSessionStatus() {
+    if (!accountSessionStatus || !accountProfile) {
+      return;
+    }
+
+    const profile = getProfileForCurrentAccount();
+    if (profile) {
+      accountSessionStatus.textContent = `已保存：${profile.name} · ${formatShortTime(profile.savedAt)} · 可更新`;
+      sessionSaveButton.textContent = "更新当前登录态";
+      return;
+    }
+
+    sessionSaveButton.textContent = "保存当前登录态";
+    accountSessionStatus.textContent = autoDiscoveryEnabled
+      ? `未保存：${accountProfile.detectedName || "当前账号"} · 自动发现已开启`
+      : `未保存：${accountProfile.detectedName || "当前账号"} · 自动发现已关闭`;
+  }
+
+  function maybePromptSaveDetectedAccount() {
+    if (!autoDiscoveryEnabled || !accountProfile?.id || !sessionProfiles || getProfileForCurrentAccount()) {
+      return;
+    }
+    if (promptedAccountIds.has(accountProfile.id)) {
+      return;
+    }
+    promptedAccountIds.add(accountProfile.id);
+    window.setTimeout(() => {
+      if (!autoDiscoveryEnabled || getProfileForCurrentAccount()) {
+        return;
+      }
+      const name = accountProfile.detectedName || "当前账号";
+      if (window.confirm(`检测到新账号「${name}」，是否保存当前登录态？`)) {
+        saveCurrentSessionProfile({ skipConfirm: true });
+      }
+    }, 600);
+  }
+
+  function updateSessionButtons() {
+    const hasProfile = Boolean(sessionProfileSelect.value);
+    sessionRestoreButton.disabled = !hasProfile;
+    sessionDeleteButton.disabled = !hasProfile;
+  }
+
+  function normalizeName(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function collectStorage(storage) {
+    const data = {};
+    try {
+      for (let i = 0; i < storage.length; i += 1) {
+        const key = storage.key(i);
+        if (key) {
+          data[key] = storage.getItem(key);
+        }
+      }
+    } catch {
+      return {};
+    }
+    return data;
+  }
+
+  function restoreStorage(storage, data) {
+    try {
+      storage.clear();
+      for (const [key, value] of Object.entries(data || {})) {
+        storage.setItem(key, value);
+      }
+    } catch (error) {
+      console.warn("restore storage failed:", error);
+    }
+  }
+
+  function renderAccountProfile() {
+    if (!accountProfile) {
+      return;
+    }
+
+    const displayName = accountProfile.detectedName || "当前账号";
+    const color = "#2563eb";
+    accountPanel.style.setProperty("--account-color", color);
+    accountAvatar.textContent = getAccountInitial(displayName);
+    accountName.textContent = displayName;
+
+    const captured = accountProfile.capturedCount ? ` · 已记录 ${accountProfile.capturedCount} 个资源` : "";
+    const lastCaptured = accountProfile.lastCapturedAt ? ` · 最近 ${formatShortTime(accountProfile.lastCapturedAt)}` : "";
+    accountMeta.textContent = `全局共享：15 秒配置 / 无水印资源${captured}${lastCaptured}`;
+  }
+
+  function detectCurrentAccount() {
+    const storedIdentity = findStoredAccountIdentity();
+    const visibleName = findVisibleAccountName();
+    const name = storedIdentity.name || visibleName || "当前账号";
+    const rawId = storedIdentity.id || storedIdentity.tokenHint || name || location.hostname;
+    return {
+      id: `account_${hashString(`${location.hostname}:${rawId}`)}`,
+      name
+    };
+  }
+
+  function findStoredAccountIdentity() {
+    const result = { id: "", name: "", tokenHint: "" };
+    const keys = [
+      "userInfo",
+      "user_info",
+      "accountInfo",
+      "account_info",
+      "currentUser",
+      "current_user",
+      "user",
+      "profile"
+    ];
+
+    for (const storage of [window.localStorage, window.sessionStorage]) {
+      for (const key of keys) {
+        const value = safeGetStorageItem(storage, key);
+        if (!value) {
+          continue;
+        }
+        const parsed = safeParseJson(value);
+        if (parsed && typeof parsed === "object") {
+          result.id = result.id || String(parsed.id || parsed.userId || parsed.user_id || parsed.uid || "");
+          result.name = result.name || String(parsed.name || parsed.nickname || parsed.nickName || parsed.userName || parsed.username || "");
+        } else if (!result.tokenHint && value.length > 12) {
+          result.tokenHint = hashString(`${key}:${value}`);
+        }
+        if (result.id || result.name) {
+          return result;
+        }
+      }
+    }
+    return result;
+  }
+
+  function findVisibleAccountName() {
+    const selectors = [
+      "[class*='user'] [title]",
+      "[class*='account'] [title]",
+      "[class*='avatar'][title]",
+      "[class*='profile'] [title]",
+      "[class*='user']",
+      "[class*='account']",
+      "[class*='profile']",
+      "img[alt]"
+    ];
+    for (const selector of selectors) {
+      const nodes = Array.from(document.querySelectorAll(selector)).slice(0, 80);
+      for (const node of nodes) {
+        const candidate = cleanAccountCandidate(node.getAttribute("title") || node.getAttribute("alt") || getDirectText(node) || node.textContent || "");
+        if (isUsefulAccountName(candidate)) {
+          return candidate;
+        }
+      }
+    }
+
+    return findSidebarAccountName();
+  }
+
+  function findSidebarAccountName() {
+    const candidates = [];
+    const nodes = Array.from(document.querySelectorAll("button, a, div, span")).slice(0, 1200);
+    for (const node of nodes) {
+      const candidate = cleanAccountCandidate(getDirectText(node) || node.textContent || "");
+      if (!isUsefulAccountName(candidate)) {
+        continue;
+      }
+
+      const rect = node.getBoundingClientRect();
+      if (!rect.width || !rect.height || rect.left > 360) {
+        continue;
+      }
+
+      let score = 0;
+      if (rect.bottom > window.innerHeight - 140) score += 40;
+      if (rect.left < 120) score += 12;
+      if (/号|hao|account|user|profile/i.test(candidate)) score += 18;
+      if (node.closest("[class*='user'], [class*='account'], [class*='profile'], [class*='avatar']")) score += 16;
+      if (node.querySelector("img, svg") || node.parentElement?.querySelector("img, svg")) score += 8;
+      candidates.push({ candidate, score, top: rect.top });
+    }
+
+    candidates.sort((a, b) => b.score - a.score || b.top - a.top);
+    return candidates[0]?.candidate || "";
+  }
+
+  function getDirectText(node) {
+    return Array.from(node.childNodes || [])
+      .filter((child) => child.nodeType === Node.TEXT_NODE)
+      .map((child) => child.textContent)
+      .join(" ");
+  }
+
+  function cleanAccountCandidate(value) {
+    return String(value || "")
+      .replace(/\s+/g, " ")
+      .replace(/[›>]+$/g, "")
+      .trim();
+  }
+
+  function isUsefulAccountName(value) {
+    if (!value || value.length < 2 || value.length > 24) {
+      return false;
+    }
+    return !/豆包|Dola|logo|avatar|image|icon|搜索|下载|新对话|新办公任务|AI 创作|云盘|更多|收藏夹|文件夹|历史对话|主对话|Ctrl|Shift|全部|视频|图片|资源|助手|备注|保存/i.test(value);
+  }
+
+  function safeGetStorageItem(storage, key) {
+    try {
+      return storage.getItem(key);
+    } catch {
+      return "";
+    }
+  }
+
+  function safeParseJson(value) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+
+  function getAccountInitial(name) {
+    return String(name || "?").trim().slice(0, 1).toUpperCase() || "?";
+  }
+
+  function hashString(value) {
+    let hash = 2166136261;
+    for (let i = 0; i < value.length; i += 1) {
+      hash ^= value.charCodeAt(i);
+      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+    }
+    return (hash >>> 0).toString(36);
+  }
+
+  function formatShortTime(timestamp) {
+    return new Intl.DateTimeFormat("zh-CN", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(new Date(timestamp));
+  }
 
   async function fetchDoubaoVideos(sourceKey, vids) {
     const uniqueVids = Array.from(new Set(vids.filter((vid) => typeof vid === "string" && vid)));
@@ -1410,14 +2210,19 @@
   }
 
   function addItems(nextItems) {
+    let addedCount = 0;
     for (const item of nextItems) {
       if (!item || typeof item.url !== "string" || !isHttpUrl(item.url)) {
         continue;
       }
       const type = item.type === "image" ? "image" : "video";
+      if (!items.has(item.url)) {
+        addedCount += 1;
+      }
       items.set(item.url, { type, url: item.url, capturedAt: Date.now() });
       selectedUrls.add(item.url);
     }
+    noteAccountCapture(addedCount);
   }
 
   function startDrag(event) {

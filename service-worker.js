@@ -2,6 +2,7 @@ const DEBUGGER_VERSION = "1.3";
 const EXTENSION_VERSION = "1.4.0";
 const DEBUG_LOG_ENABLED = false;
 const SETTINGS_KEY = "doubaoDolaHelperSettings";
+const SESSION_PROFILES_KEY = "doubaoDolaHelperSessionProfiles";
 const DEFAULT_SETTINGS = {
   enabled: true,
   duration15Enabled: true,
@@ -135,6 +136,48 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "GET_SESSION_PROFILES") {
+    getSessionProfiles()
+      .then((profiles) => sendResponse({ profiles: toProfileList(profiles) }))
+      .catch((error) => sendResponse({ profiles: [], error: error.message }));
+    return true;
+  }
+
+  if (message.type === "SAVE_SESSION_PROFILE") {
+    saveSessionProfile(message)
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "RESTORE_SESSION_PROFILE" && message.profileId) {
+    restoreSessionProfile(message.profileId, message.url)
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "DELETE_SESSION_PROFILE" && message.profileId) {
+    deleteSessionProfile(message.profileId)
+      .then((profiles) => sendResponse({ ok: true, profiles: toProfileList(profiles) }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "EXPORT_SESSION_BACKUP") {
+    exportSessionBackup()
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "IMPORT_SESSION_BACKUP" && message.backup) {
+    importSessionBackup(message.backup)
+      .then((profiles) => sendResponse({ ok: true, profiles: toProfileList(profiles) }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   return false;
 });
 
@@ -162,6 +205,250 @@ async function saveSettings(nextSettings) {
   await chrome.storage.local.set({ [SETTINGS_KEY]: currentSettings });
   await refreshBadges();
   return currentSettings;
+}
+
+async function getSessionProfiles() {
+  const stored = await chrome.storage.local.get(SESSION_PROFILES_KEY);
+  return stored[SESSION_PROFILES_KEY] || {};
+}
+
+async function setSessionProfiles(profiles) {
+  await chrome.storage.local.set({ [SESSION_PROFILES_KEY]: profiles });
+  return profiles;
+}
+
+function toProfileList(profiles) {
+  return Object.values(profiles)
+    .map((profile) => ({
+      id: profile.id,
+      accountId: profile.accountId || "",
+      name: profile.name,
+      host: profile.host,
+      baseDomain: profile.baseDomain,
+      cookieCount: Array.isArray(profile.cookies) ? profile.cookies.length : 0,
+      savedAt: profile.savedAt
+    }))
+    .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+}
+
+async function saveSessionProfile(message) {
+  const sourceUrl = normalizeTargetUrl(message.url);
+  const host = sourceUrl.hostname;
+  const baseDomain = getManagedBaseDomain(host);
+  const cookies = await chrome.cookies.getAll({ domain: baseDomain });
+  const profiles = await getSessionProfiles();
+  const id = message.profileId || `session_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const name = sanitizeProfileName(message.name) || host;
+
+  profiles[id] = {
+    id,
+    accountId: String(message.accountId || ""),
+    name,
+    host,
+    baseDomain,
+    cookies: cookies.map(sanitizeCookieForStorage),
+    localStorage: isPlainObject(message.localStorage) ? message.localStorage : {},
+    sessionStorage: isPlainObject(message.sessionStorage) ? message.sessionStorage : {},
+    savedAt: Date.now()
+  };
+
+  await setSessionProfiles(profiles);
+  return { ok: true, profile: toProfileList({ [id]: profiles[id] })[0], profiles: toProfileList(profiles) };
+}
+
+async function restoreSessionProfile(profileId, url) {
+  const sourceUrl = normalizeTargetUrl(url);
+  const profiles = await getSessionProfiles();
+  const profile = profiles[profileId];
+  if (!profile) {
+    throw new Error("Session profile not found");
+  }
+
+  const baseDomain = getManagedBaseDomain(sourceUrl.hostname);
+  if (baseDomain !== profile.baseDomain) {
+    throw new Error("This profile belongs to a different site");
+  }
+
+  await clearCookiesForDomain(baseDomain);
+  for (const cookie of profile.cookies || []) {
+    await setCookieSafely(cookie);
+  }
+
+  return {
+    ok: true,
+    profile: toProfileList({ [profile.id]: profile })[0],
+    localStorage: isPlainObject(profile.localStorage) ? profile.localStorage : {},
+    sessionStorage: isPlainObject(profile.sessionStorage) ? profile.sessionStorage : {}
+  };
+}
+
+async function deleteSessionProfile(profileId) {
+  const profiles = await getSessionProfiles();
+  delete profiles[profileId];
+  return setSessionProfiles(profiles);
+}
+
+async function exportSessionBackup() {
+  const profiles = await getSessionProfiles();
+  const backup = {
+    format: "doubao-dola-helper-session-backup",
+    version: 1,
+    exportedAt: Date.now(),
+    profiles
+  };
+  const body = JSON.stringify(backup, null, 2);
+  const url = `data:application/json;charset=utf-8,${encodeURIComponent(body)}`;
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  await chrome.downloads.download({
+    url,
+    filename: `doubao-dola-session-backup-${timestamp}.json`,
+    saveAs: true
+  });
+  return { ok: true, count: Object.keys(profiles).length };
+}
+
+async function importSessionBackup(backup) {
+  const incoming = normalizeImportedProfiles(backup);
+  const current = await getSessionProfiles();
+  const merged = { ...current };
+  for (const profile of Object.values(incoming)) {
+    if (!profile || !profile.id) {
+      continue;
+    }
+    merged[profile.id] = profile;
+  }
+  return setSessionProfiles(merged);
+}
+
+function normalizeImportedProfiles(backup) {
+  const rawProfiles = backup?.profiles;
+  if (!rawProfiles || typeof rawProfiles !== "object" || Array.isArray(rawProfiles)) {
+    throw new Error("Invalid backup file");
+  }
+
+  const profiles = {};
+  for (const [key, value] of Object.entries(rawProfiles)) {
+    if (!isValidImportedProfile(value)) {
+      continue;
+    }
+    const id = String(value.id || key);
+    profiles[id] = {
+      id,
+      accountId: String(value.accountId || ""),
+      name: sanitizeProfileName(value.name) || "Imported account",
+      host: String(value.host || ""),
+      baseDomain: getManagedBaseDomain(value.baseDomain || value.host || ""),
+      cookies: Array.isArray(value.cookies) ? value.cookies.map(sanitizeImportedCookie).filter(Boolean) : [],
+      localStorage: isPlainObject(value.localStorage) ? value.localStorage : {},
+      sessionStorage: isPlainObject(value.sessionStorage) ? value.sessionStorage : {},
+      savedAt: Number(value.savedAt || Date.now())
+    };
+  }
+
+  if (!Object.keys(profiles).length) {
+    throw new Error("No valid sessions found in backup");
+  }
+  return profiles;
+}
+
+function isValidImportedProfile(profile) {
+  return Boolean(profile)
+    && typeof profile === "object"
+    && !Array.isArray(profile)
+    && (profile.baseDomain || profile.host)
+    && Array.isArray(profile.cookies);
+}
+
+function sanitizeImportedCookie(cookie) {
+  if (!cookie || typeof cookie !== "object" || !cookie.name || !cookie.domain) {
+    return null;
+  }
+  const sanitized = sanitizeCookieForStorage(cookie);
+  sanitized.value = String(sanitized.value || "");
+  return sanitized;
+}
+
+async function clearCookiesForDomain(baseDomain) {
+  const cookies = await chrome.cookies.getAll({ domain: baseDomain });
+  for (const cookie of cookies) {
+    await chrome.cookies.remove({
+      url: getCookieUrl(cookie),
+      name: cookie.name,
+      storeId: cookie.storeId
+    }).catch(() => {});
+  }
+}
+
+async function setCookieSafely(cookie) {
+  const details = {
+    url: getCookieUrl(cookie),
+    name: cookie.name,
+    value: cookie.value || "",
+    domain: cookie.domain,
+    path: cookie.path || "/",
+    secure: Boolean(cookie.secure),
+    httpOnly: Boolean(cookie.httpOnly),
+    sameSite: normalizeSameSite(cookie.sameSite)
+  };
+
+  if (Number.isFinite(cookie.expirationDate)) {
+    details.expirationDate = cookie.expirationDate;
+  }
+
+  await chrome.cookies.set(details).catch((error) => {
+    console.warn("set cookie failed:", cookie.name, error);
+  });
+}
+
+function sanitizeCookieForStorage(cookie) {
+  return {
+    name: cookie.name,
+    value: cookie.value,
+    domain: cookie.domain,
+    path: cookie.path,
+    secure: cookie.secure,
+    httpOnly: cookie.httpOnly,
+    sameSite: cookie.sameSite,
+    expirationDate: cookie.expirationDate
+  };
+}
+
+function getCookieUrl(cookie) {
+  const protocol = cookie.secure ? "https://" : "http://";
+  const domain = String(cookie.domain || "").replace(/^\./, "");
+  const path = cookie.path || "/";
+  return `${protocol}${domain}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function normalizeTargetUrl(url) {
+  const parsed = new URL(url || "");
+  getManagedBaseDomain(parsed.hostname);
+  return parsed;
+}
+
+function getManagedBaseDomain(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  if (host === "doubao.com" || host.endsWith(".doubao.com")) {
+    return "doubao.com";
+  }
+  if (host === "dola.com" || host.endsWith(".dola.com")) {
+    return "dola.com";
+  }
+  throw new Error("Only Doubao / Dola pages are supported");
+}
+
+function sanitizeProfileName(name) {
+  return String(name || "").trim().slice(0, 40);
+}
+
+function normalizeSameSite(value) {
+  return ["no_restriction", "lax", "strict", "unspecified"].includes(value)
+    ? value
+    : "unspecified";
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeSettings(value) {

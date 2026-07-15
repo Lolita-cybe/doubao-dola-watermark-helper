@@ -113,6 +113,22 @@ Doubao / Dola Watermark-Free Resource Helper is a Chrome / Edge Manifest V3 exte
 
 Use it only for content you created, own, or are authorized to download.
 
+## Account Notes
+
+The downloader panel includes a local account notes area for users who manage several Doubao accounts. It can save an alias, note, color, last seen time, and captured resource count for the detected local account.
+
+The account notes feature is intentionally not a cookie switcher. It does not save passwords, raw cookies, exported cookies, or raw session tokens. The Enable, 15-second configuration, and watermark-free resource switches remain global extension settings shared by all accounts.
+
+## Local Session Switching
+
+The account panel also includes an optional local session switching tool for Doubao / Dola accounts. It can save the current site's cookies, localStorage, and sessionStorage in `chrome.storage.local`, then restore a selected saved session on the same site.
+
+This feature is local-only. It does not upload sessions or provide cookie export. Saved sessions are sensitive because they may keep an account logged in, so only use it on your own computer and for accounts you control.
+
+The panel can semi-automatically discover the current visible Doubao account. If the account has already been saved, it shows the saved state and offers an update action. If the account is new, it can prompt the user to save the current local session, which makes adding many accounts faster without creating duplicate entries.
+
+Saved sessions can be exported to and imported from a local JSON backup file. The backup contains login-state data, so treat it like a password file and do not share it.
+
 ## License
 
 [MIT](LICENSE)
