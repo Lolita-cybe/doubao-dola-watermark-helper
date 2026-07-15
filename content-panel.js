@@ -459,7 +459,17 @@
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto auto auto auto auto;
         gap: 8px;
-        align-items: center;
+        align-items: start;
+      }
+
+      .session-profile-select {
+        height: 154px;
+        padding: 6px;
+        overflow-y: auto;
+      }
+
+      .session-profile-select option {
+        padding: 6px 8px;
       }
 
       .backup-file-input {
@@ -1051,7 +1061,7 @@
           <div class="account-session-status">正在检查当前账号</div>
         </div>
         <div class="session-tools">
-          <select class="account-field session-profile-select" aria-label="已保存的登录态">
+          <select class="account-field session-profile-select" aria-label="已保存的登录态" size="6">
             <option value="">暂无已保存登录态</option>
           </select>
           <button class="secondary-button session-save-button" type="button">保存当前登录态</button>
@@ -1579,13 +1589,23 @@
 
   function renderSessionProfiles(selectedId = "") {
     sessionProfileSelect.textContent = "";
+    const currentProfile = getProfileForCurrentAccount();
+    const currentName = accountProfile?.detectedName || "当前账号";
+    const effectiveSelectedId = selectedId || currentProfile?.id || "";
     if (!sessionProfiles.length) {
       const option = document.createElement("option");
       option.value = "";
-      option.textContent = "暂无已保存登录态";
+      option.textContent = `当前未保存：${currentName} · 点击“另存当前账号”`;
       sessionProfileSelect.append(option);
       updateSessionButtons();
       return;
+    }
+
+    if (!currentProfile && accountProfile?.id) {
+      const currentOption = document.createElement("option");
+      currentOption.value = "";
+      currentOption.textContent = `当前未保存：${currentName} · 点击“另存当前账号”`;
+      sessionProfileSelect.append(currentOption);
     }
 
     for (const profile of sessionProfiles) {
@@ -1595,8 +1615,8 @@
       sessionProfileSelect.append(option);
     }
 
-    if (selectedId) {
-      sessionProfileSelect.value = selectedId;
+    if (effectiveSelectedId) {
+      sessionProfileSelect.value = effectiveSelectedId;
     }
     updateSessionButtons();
   }
@@ -1820,6 +1840,9 @@
     }
     if (/有什么|我能帮|帮你|提示词|生成|建议|问题|回答|新对话|主对话|\?|\？/.test(value)) {
       return false;
+    }
+    if (/\d+\s*号$|号$|hao$/i.test(value)) {
+      return true;
     }
     return !/豆包|Dola|logo|avatar|image|icon|搜索|下载|新对话|新办公任务|AI 创作|云盘|更多|收藏夹|文件夹|历史对话|主对话|Ctrl|Shift|全部|视频|图片|资源|助手|备注|保存/i.test(value);
   }

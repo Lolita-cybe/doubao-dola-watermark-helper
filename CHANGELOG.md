@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.3
+
+- Fixed account names that include product words such as `豆包大王10号` being filtered as non-account text.
+- Changed the saved-account selector into a scrollable multi-account list.
+- Show the currently detected unsaved account in the account list so it is clear when it still needs to be saved.
+
 ## 1.6.2
 
 - Added "save as current account" support so multiple Doubao accounts can be recorded without overwriting the detected current account profile.
