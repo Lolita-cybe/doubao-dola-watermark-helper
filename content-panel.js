@@ -3,6 +3,7 @@
   const DOUBAO_PLAY_INFO_URL = "https://www.doubao.com/samantha/media/get_play_info?version_code=20800&language=zh-CN&device_platform=web&aid=497858&real_aid=497858&pkg_type=release_version&device_id=&pc_version=2.51.7&region=&sys_region=&samantha_web=1&use-olympus-account=1&web_tab_id=";
   const ACCOUNT_STORAGE_KEY = "doubaoDolaHelperAccounts";
   const AUTO_DISCOVERY_STORAGE_KEY = "doubaoDolaHelperAutoDiscovery";
+  const RESTORED_PROFILE_HINT_KEY = "doubaoDolaHelperRestoredProfileHint";
 
   const items = new Map();
   const selectedUrls = new Set();
@@ -16,7 +17,8 @@
   let settings = {
     enabled: true,
     duration15Enabled: true,
-    watermarkEnabled: true
+    watermarkEnabled: true,
+    darkModeEnabled: false
   };
   let accountProfile = null;
   let accountsById = {};
@@ -66,11 +68,29 @@
         color: var(--text);
       }
 
+      :host(.is-dark) {
+        --bg: #111827;
+        --surface: #1f2937;
+        --surface-subtle: #273244;
+        --border: #374151;
+        --border-strong: #4b5563;
+        --primary: #60a5fa;
+        --primary-hover: #3b82f6;
+        --primary-soft: #172554;
+        --text: #f8fafc;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --danger: #f87171;
+        --danger-soft: #451a1a;
+        --success: #4ade80;
+        --shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+      }
+
       *, *::before, *::after {
         box-sizing: border-box;
       }
 
-      button, input {
+      button, input, select {
         font: inherit;
       }
 
@@ -102,6 +122,11 @@
       .launcher:hover {
         border-color: var(--border-strong);
         box-shadow: 0 10px 26px rgba(15, 23, 42, 0.16);
+      }
+
+      :host(.is-dark) .launcher,
+      :host(.is-dark) .settings-popover {
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
       }
 
       .launcher.is-visible {
@@ -404,6 +429,10 @@
         font-weight: 700;
       }
 
+      :host(.is-dark) .account-chip {
+        background: rgba(34, 197, 94, 0.16);
+      }
+
       .account-meta {
         margin-top: 2px;
         overflow: hidden;
@@ -445,6 +474,10 @@
         border: 1px solid var(--border);
         border-radius: var(--radius-small);
         font-size: 12px;
+      }
+
+      :host(.is-dark) .account-field {
+        color-scheme: dark;
       }
 
       .account-field::placeholder {
@@ -604,6 +637,10 @@
         border-color: #b8c2ce;
       }
 
+      :host(.is-dark) .secondary-button:hover {
+        border-color: var(--border-strong);
+      }
+
       .primary-button {
         color: #fff;
         background: var(--primary);
@@ -680,6 +717,10 @@
         scrollbar-color: #c7cdd4 transparent;
       }
 
+      :host(.is-dark) .content {
+        scrollbar-color: #4b5563 transparent;
+      }
+
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(240px, 280px));
@@ -703,6 +744,10 @@
         box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
       }
 
+      :host(.is-dark) .card:hover {
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+      }
+
       .card.is-selected {
         border-color: var(--primary);
         background: var(--primary-soft);
@@ -723,6 +768,10 @@
         box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
       }
 
+      :host(.is-dark) .check-wrap {
+        background: rgba(15, 23, 42, 0.86);
+      }
+
       .check {
         width: 16px;
         height: 16px;
@@ -741,6 +790,10 @@
         overflow: hidden;
         background: #eef1f4;
         border-bottom: 1px solid var(--border);
+      }
+
+      :host(.is-dark) .preview {
+        background: #0f172a;
       }
 
       .preview.is-video {
@@ -826,6 +879,10 @@
 
       .card.is-selected .card-button {
         background: rgba(255, 255, 255, 0.82);
+      }
+
+      :host(.is-dark) .card.is-selected .card-button {
+        background: rgba(15, 23, 42, 0.72);
       }
 
       .empty {
@@ -1036,6 +1093,14 @@
             <span class="switch-description">控制原始图片和视频资源提取</span>
           </span>
           <input class="setting-toggle" data-setting="watermarkEnabled" type="checkbox" />
+          <span class="switch-track" aria-hidden="true"></span>
+        </label>
+        <label class="switch">
+          <span class="switch-copy">
+            <span class="switch-name">夜晚模式</span>
+            <span class="switch-description">切换资源助手面板深色外观</span>
+          </span>
+          <input class="setting-toggle" data-setting="darkModeEnabled" type="checkbox" />
           <span class="switch-track" aria-hidden="true"></span>
         </label>
       </aside>
@@ -1534,6 +1599,7 @@
 
       restoreStorage(window.localStorage, response.localStorage);
       restoreStorage(window.sessionStorage, response.sessionStorage);
+      setRestoredProfileHint(profile);
       showToast("登录态已切换，正在刷新", "success");
       window.setTimeout(() => window.location.reload(), 500);
     });
@@ -1654,6 +1720,13 @@
     if (!accountProfile?.id) {
       return null;
     }
+    const restoredHint = getRestoredProfileHint();
+    if (restoredHint?.profileId) {
+      const hintedProfile = sessionProfiles.find((profile) => profile.id === restoredHint.profileId);
+      if (hintedProfile) {
+        return hintedProfile;
+      }
+    }
     return sessionProfiles.find((profile) => profile.accountId === accountProfile.id)
       || sessionProfiles.find((profile) => normalizeName(profile.name) === normalizeName(accountProfile.detectedName));
   }
@@ -1680,6 +1753,9 @@
     if (!autoDiscoveryEnabled || !accountProfile?.id || !sessionProfiles || getProfileForCurrentAccount()) {
       return;
     }
+    if (!isUsefulAccountName(accountProfile.detectedName)) {
+      return;
+    }
     if (promptedAccountIds.has(accountProfile.id)) {
       return;
     }
@@ -1703,6 +1779,31 @@
 
   function normalizeName(value) {
     return String(value || "").trim().toLowerCase();
+  }
+
+  function setRestoredProfileHint(profile) {
+    try {
+      window.sessionStorage.setItem(RESTORED_PROFILE_HINT_KEY, JSON.stringify({
+        profileId: profile.id,
+        name: profile.name,
+        accountId: profile.accountId || "",
+        savedAt: Date.now()
+      }));
+    } catch {
+      // The hint only avoids duplicate save prompts after a switch.
+    }
+  }
+
+  function getRestoredProfileHint() {
+    try {
+      const parsed = safeParseJson(window.sessionStorage.getItem(RESTORED_PROFILE_HINT_KEY));
+      if (!parsed || Date.now() - Number(parsed.savedAt || 0) > 5 * 60 * 1000) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
   }
 
   function formatSessionSaveError(error) {
@@ -1768,10 +1869,12 @@
     const storedIdentity = findStoredAccountIdentity();
     const sidebarName = findSidebarAccountName();
     const visibleName = findVisibleAccountName();
-    const name = sidebarName || storedIdentity.name || visibleName || "当前账号";
+    const restoredHint = getRestoredProfileHint();
+    const storedName = isUsefulAccountName(storedIdentity.name) ? storedIdentity.name : "";
+    const name = sidebarName || visibleName || storedName || restoredHint?.name || "当前账号";
     const rawId = storedIdentity.id || storedIdentity.tokenHint || name || location.hostname;
     return {
-      id: `account_${hashString(`${location.hostname}:${rawId}`)}`,
+      id: restoredHint?.accountId || `account_${hashString(`${location.hostname}:${rawId}`)}`,
       name
     };
   }
@@ -1841,9 +1944,15 @@
 
   function findSidebarAccountName() {
     const candidates = [];
-    const nodes = Array.from(document.querySelectorAll("button, a, div, span")).slice(0, 1200);
+    const nodes = Array.from(document.querySelectorAll("button, a, div, span, [title], [aria-label]"));
     for (const node of nodes) {
-      const candidate = cleanAccountCandidate(getDirectText(node) || node.textContent || "");
+      const candidate = cleanAccountCandidate(
+        node.getAttribute("title")
+          || node.getAttribute("aria-label")
+          || getDirectText(node)
+          || node.textContent
+          || ""
+      );
       if (!isUsefulAccountName(candidate)) {
         continue;
       }
@@ -1855,8 +1964,10 @@
 
       let score = 0;
       if (rect.bottom > window.innerHeight - 140) score += 40;
+      if (rect.bottom > window.innerHeight - 80) score += 30;
       if (rect.left < 120) score += 12;
       if (/号|hao|account|user|profile/i.test(candidate)) score += 18;
+      if (/豆包.*\d+\s*号|闲鱼.*\d+\s*号|咸鱼.*\d+\s*号/.test(candidate)) score += 26;
       if (node.closest("[class*='user'], [class*='account'], [class*='profile'], [class*='avatar']")) score += 16;
       if (node.querySelector("img, svg") || node.parentElement?.querySelector("img, svg")) score += 8;
       candidates.push({ candidate, score, top: rect.top });
@@ -1884,7 +1995,7 @@
     if (!value || value.length < 2 || value.length > 24) {
       return false;
     }
-    if (/有什么|我能帮|帮你|提示词|生成|建议|问题|回答|新对话|主对话|\?|\？/.test(value)) {
+    if (/当前账号|有什么|我能帮|帮你|提示词|生成|建议|问题|回答|新对话|主对话|\?|\？/.test(value)) {
       return false;
     }
     if (/\d+\s*号$|号$|hao$/i.test(value)) {
@@ -2274,9 +2385,11 @@
     settings = {
       enabled: nextSettings?.enabled !== false,
       duration15Enabled: nextSettings?.duration15Enabled !== false,
-      watermarkEnabled: nextSettings?.watermarkEnabled !== false
+      watermarkEnabled: nextSettings?.watermarkEnabled !== false,
+      darkModeEnabled: nextSettings?.darkModeEnabled === true
     };
 
+    host.classList.toggle("is-dark", settings.darkModeEnabled);
     settingToggles.forEach((toggle) => {
       toggle.checked = Boolean(settings[toggle.dataset.setting]);
     });

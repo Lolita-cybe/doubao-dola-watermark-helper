@@ -1,12 +1,13 @@
 const DEBUGGER_VERSION = "1.3";
-const EXTENSION_VERSION = "1.4.0";
+const EXTENSION_VERSION = "1.6.6";
 const DEBUG_LOG_ENABLED = false;
 const SETTINGS_KEY = "doubaoDolaHelperSettings";
 const SESSION_PROFILES_KEY = "doubaoDolaHelperSessionProfiles";
 const DEFAULT_SETTINGS = {
   enabled: true,
   duration15Enabled: true,
-  watermarkEnabled: true
+  watermarkEnabled: true,
+  darkModeEnabled: false
 };
 
 const ENDPOINTS = {
@@ -455,7 +456,8 @@ function normalizeSettings(value) {
   return {
     enabled: value?.enabled !== false,
     duration15Enabled: value?.duration15Enabled !== false,
-    watermarkEnabled: value?.watermarkEnabled !== false
+    watermarkEnabled: value?.watermarkEnabled !== false,
+    darkModeEnabled: value?.darkModeEnabled === true
   };
 }
 

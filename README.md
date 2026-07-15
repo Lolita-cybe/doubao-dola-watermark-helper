@@ -5,7 +5,7 @@
 [![Manifest V3](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active-brightgreen)](#)
-[![Release](https://img.shields.io/badge/release-v1.6.5-blue)](https://github.com/Lolita-cybe/doubao-dola-watermark-helper/releases/tag/v1.6.5)
+[![Release](https://img.shields.io/badge/release-v1.6.6-blue)](https://github.com/Lolita-cybe/doubao-dola-watermark-helper/releases/tag/v1.6.6)
 
 ## 项目简介
 
@@ -32,6 +32,7 @@
   - `启用插件`：插件总开关，关闭后目标接口直接放行。
   - `15 秒配置`：控制 15 秒视频配置注入。
   - `无水印资源`：控制无水印资源提取和显示。
+  - `夜晚模式`：切换资源助手面板深色外观，刷新后保持设置。
 - 本地账号管理：
   - 自动识别当前豆包账号。
   - 自动发现新账号并提示保存。

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.6
+
+- Added a persistent night mode switch for the downloader panel.
+- Fixed saved-account switching so restored accounts are not prompted as new accounts after refresh.
+- Improved left-sidebar account-name recognition for numbered Doubao accounts.
+
 ## 1.6.5
 
 - Added account-name search for filtering the saved multi-account list.
