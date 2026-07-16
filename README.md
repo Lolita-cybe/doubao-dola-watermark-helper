@@ -5,7 +5,7 @@
 [![Manifest V3](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active-brightgreen)](#)
-[![Release](https://img.shields.io/badge/release-v1.6.6-blue)](https://github.com/Lolita-cybe/doubao-dola-watermark-helper/releases/tag/v1.6.6)
+[![Release](https://img.shields.io/badge/release-v1.6.7-blue)](https://github.com/Lolita-cybe/doubao-dola-watermark-helper/releases/tag/v1.6.7)
 
 ## 项目简介
 
@@ -27,6 +27,7 @@
 - 批量操作：支持单个下载、勾选下载、当前结果下载。
 - 资源筛选：支持全部、视频、图片筛选。
 - 可移动窗口：拖动标题栏移动窗口，双击标题栏恢复居中。
+- 可拖动悬浮按钮：最小化后显示图标按钮，可拖动到页面任意可见位置。
 - 插件图标唤起：点击浏览器插件图标打开下载器面板。
 - 功能开关：
   - `启用插件`：插件总开关，关闭后目标接口直接放行。

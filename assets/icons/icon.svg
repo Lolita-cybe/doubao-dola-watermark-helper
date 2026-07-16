@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Doubao Dola helper icon">
+  <defs>
+    <linearGradient id="bg" x1="18" y1="14" x2="112" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="0.48" stop-color="#1d4ed8"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="38" y1="28" x2="92" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dbeafe"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#020617" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="url(#bg)" filter="url(#shadow)"/>
+  <path d="M31 32h36c20 0 34 13 34 32s-14 32-34 32H31V32Zm18 17v30h17c10 0 17-6 17-15s-7-15-17-15H49Z" fill="url(#mark)"/>
+  <path d="M68 22v20m-10-10h20" fill="none" stroke="#67e8f9" stroke-width="7" stroke-linecap="round"/>
+  <path d="M88 74v23m0 0 10-10m-10 10L78 87" fill="none" stroke="#22d3ee" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M39 104h58" fill="none" stroke="#bae6fd" stroke-width="7" stroke-linecap="round" opacity="0.9"/>
+</svg>

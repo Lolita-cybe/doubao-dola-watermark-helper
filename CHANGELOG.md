@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.7
+
+- Added a custom extension icon set for Chrome / Edge toolbar and extension management pages.
+- Replaced the minimized launcher text with the new icon and resource-count badge.
+- Made the minimized launcher draggable like a floating button.
+- Removed the extra launcher frame so the minimized icon displays cleanly.
+
 ## 1.6.6
 
 - Added a persistent night mode switch for the downloader panel.

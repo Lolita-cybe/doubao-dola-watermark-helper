@@ -1,5 +1,5 @@
 const DEBUGGER_VERSION = "1.3";
-const EXTENSION_VERSION = "1.6.6";
+const EXTENSION_VERSION = "1.6.7";
 const DEBUG_LOG_ENABLED = false;
 const SETTINGS_KEY = "doubaoDolaHelperSettings";
 const SESSION_PROFILES_KEY = "doubaoDolaHelperSessionProfiles";

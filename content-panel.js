@@ -13,7 +13,10 @@
   let activeFilter = "all";
   let panelLeft = null;
   let panelTop = null;
+  let launcherLeft = null;
+  let launcherTop = null;
   let dragState = null;
+  let launcherDragState = null;
   let settings = {
     enabled: true,
     duration15Enabled: true,
@@ -102,29 +105,28 @@
         position: fixed;
         right: 16px;
         bottom: 16px;
-        min-width: 156px;
-        height: 40px;
+        width: 42px;
+        height: 42px;
         display: none;
         align-items: center;
-        justify-content: space-between;
-        gap: var(--space-3);
-        padding: 0 12px;
-        color: var(--text);
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.13);
+        justify-content: center;
+        padding: 0;
+        color: #ffffff;
+        appearance: none;
+        background: none;
+        border: 0;
+        border-radius: 12px;
+        box-shadow: none;
         cursor: pointer;
         pointer-events: auto;
-        transition: border-color 150ms ease, box-shadow 150ms ease;
+        touch-action: none;
+        transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
       }
 
       .launcher:hover {
-        border-color: var(--border-strong);
-        box-shadow: 0 10px 26px rgba(15, 23, 42, 0.16);
+        transform: translateY(-1px);
       }
 
-      :host(.is-dark) .launcher,
       :host(.is-dark) .settings-popover {
         box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
       }
@@ -133,9 +135,12 @@
         display: flex;
       }
 
-      .launcher-title {
-        font-size: 13px;
-        font-weight: 650;
+      .launcher-icon {
+        width: 42px;
+        height: 42px;
+        display: block;
+        border-radius: 12px;
+        filter: drop-shadow(0 10px 18px rgba(15, 23, 42, 0.2));
       }
 
       .badge {
@@ -427,6 +432,20 @@
         font-size: 11px;
         line-height: 20px;
         font-weight: 700;
+      }
+
+      .launcher-count {
+        position: absolute;
+        right: -5px;
+        top: -5px;
+        min-width: 21px;
+        height: 21px;
+        padding: 0 6px;
+        color: #ffffff;
+        background: #1d4ed8;
+        border: 2px solid var(--surface);
+        line-height: 17px;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.22);
       }
 
       :host(.is-dark) .account-chip {
@@ -1046,7 +1065,24 @@
     </style>
 
     <button class="launcher" type="button" title="打开资源助手" aria-label="打开豆包和 Dola 资源助手">
-      <span class="launcher-title">资源助手</span>
+      <svg class="launcher-icon" viewBox="0 0 128 128" aria-hidden="true">
+        <defs>
+          <linearGradient id="launcher-bg" x1="18" y1="14" x2="112" y2="118" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#0f172a"></stop>
+            <stop offset="0.52" stop-color="#1d4ed8"></stop>
+            <stop offset="1" stop-color="#06b6d4"></stop>
+          </linearGradient>
+          <linearGradient id="launcher-mark" x1="38" y1="28" x2="92" y2="104" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#ffffff"></stop>
+            <stop offset="1" stop-color="#dbeafe"></stop>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="128" height="128" rx="32" fill="url(#launcher-bg)"></rect>
+        <text x="57" y="82" fill="url(#launcher-mark)" font-family="Segoe UI, Arial, sans-serif" font-size="62" font-weight="800" text-anchor="middle">D</text>
+        <path d="M68 22v20m-10-10h20" fill="none" stroke="#67e8f9" stroke-width="7" stroke-linecap="round"></path>
+        <path d="M88 74v23m0 0 10-10m-10 10L78 87" fill="none" stroke="#22d3ee" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M39 104h58" fill="none" stroke="#bae6fd" stroke-width="7" stroke-linecap="round" opacity="0.9"></path>
+      </svg>
       <span class="badge launcher-count">0</span>
     </button>
 
@@ -1234,7 +1270,12 @@
 
   setupBackupControls();
 
-  launcher.addEventListener("click", () => {
+  launcher.addEventListener("pointerdown", startLauncherDrag);
+  launcher.addEventListener("click", (event) => {
+    if (launcherDragState?.moved) {
+      event.preventDefault();
+      return;
+    }
     panelState = "open";
     updatePanelVisibility();
   });
@@ -1335,7 +1376,9 @@
     applyPanelPosition();
   });
   window.addEventListener("pointermove", moveDrag);
+  window.addEventListener("pointermove", moveLauncherDrag);
   window.addEventListener("pointerup", endDrag);
+  window.addEventListener("pointerup", endLauncherDrag);
   window.addEventListener("resize", applyPanelPosition);
 
   downloadSelectedButton.addEventListener("click", () => {
@@ -2459,6 +2502,54 @@
     dragState = null;
   }
 
+  function startLauncherDrag(event) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const rect = launcher.getBoundingClientRect();
+    launcherLeft = rect.left;
+    launcherTop = rect.top;
+    launcherDragState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+      moved: false
+    };
+    launcher.setPointerCapture?.(event.pointerId);
+  }
+
+  function moveLauncherDrag(event) {
+    if (!launcherDragState) {
+      return;
+    }
+
+    const deltaX = event.clientX - launcherDragState.startX;
+    const deltaY = event.clientY - launcherDragState.startY;
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      launcherDragState.moved = true;
+      event.preventDefault();
+    }
+    launcherLeft = clamp(launcherDragState.left + deltaX, 8, Math.max(8, window.innerWidth - launcherDragState.width - 8));
+    launcherTop = clamp(launcherDragState.top + deltaY, 8, Math.max(8, window.innerHeight - launcherDragState.height - 8));
+    applyLauncherPosition();
+  }
+
+  function endLauncherDrag() {
+    if (!launcherDragState) {
+      return;
+    }
+    const moved = launcherDragState.moved;
+    window.setTimeout(() => {
+      if (launcherDragState?.moved === moved) {
+        launcherDragState = null;
+      }
+    }, 0);
+  }
+
   function applyPanelPosition() {
     if (isCompactViewport()) {
       const edge = window.innerWidth <= 520 ? 6 : 10;
@@ -2469,11 +2560,13 @@
       shell.style.width = "auto";
       shell.style.height = "auto";
       shell.style.transform = "none";
+      applyLauncherPosition();
       return;
     }
 
     shell.style.width = "";
     shell.style.height = "";
+    applyLauncherPosition();
 
     if (panelLeft == null || panelTop == null) {
       shell.style.left = "50%";
@@ -2489,6 +2582,26 @@
     shell.style.right = "auto";
     shell.style.bottom = "auto";
     shell.style.transform = "none";
+  }
+
+  function applyLauncherPosition() {
+    if (launcherLeft == null || launcherTop == null) {
+      launcher.style.left = "auto";
+      launcher.style.top = "auto";
+      launcher.style.right = "16px";
+      launcher.style.bottom = "16px";
+      return;
+    }
+
+    const rect = launcher.getBoundingClientRect();
+    const width = rect.width || 52;
+    const height = rect.height || 52;
+    launcherLeft = clamp(launcherLeft, 8, Math.max(8, window.innerWidth - width - 8));
+    launcherTop = clamp(launcherTop, 8, Math.max(8, window.innerHeight - height - 8));
+    launcher.style.left = `${launcherLeft}px`;
+    launcher.style.top = `${launcherTop}px`;
+    launcher.style.right = "auto";
+    launcher.style.bottom = "auto";
   }
 
   function isCompactViewport() {
