@@ -1497,6 +1497,7 @@
     accountProfile = {
       id: detected.id,
       detectedName: detected.name,
+      hasIdentity: detected.hasIdentity,
       alias: existing.alias || "",
       note: existing.note || "",
       color: existing.color || "#2563eb",
@@ -1588,8 +1589,8 @@
       }
     }
 
-    if (!accountProfile?.id) {
-      showToast("未识别到当前账号", "error");
+    if (!accountProfile?.id || !accountProfile.hasIdentity) {
+      showToast("当前页面未确认登录账号，请先完成登录", "error");
       return;
     }
 
@@ -1622,7 +1623,7 @@
       return;
     }
 
-    const confirmed = window.confirm(`切换到「${profile.name}」？当前豆包/Dola 登录状态会被替换，页面会自动刷新。`);
+    const confirmed = window.confirm(`恢复「${profile.name}」的本机登录态？请不要先在网页中退出账号。若该登录态已被服务端注销，仍需手动登录。当前页面会自动刷新。`);
     if (!confirmed) {
       return;
     }
@@ -1636,14 +1637,15 @@
       if (!response?.ok) {
         sessionRestoreButton.disabled = false;
         updateSessionButtons();
-        showToast(response?.error || "切换登录态失败", "error");
+        showToast(response?.error || "恢复登录态失败，请刷新页面检查当前登录状态", "error");
         return;
       }
 
       restoreStorage(window.localStorage, response.localStorage);
       restoreStorage(window.sessionStorage, response.sessionStorage);
       setRestoredProfileHint(profile);
-      showToast("登录态已切换，正在刷新", "success");
+      const restoredCount = Number(response.restoredCookieCount || 0);
+      showToast(`已恢复 ${restoredCount} 个 Cookie，刷新后验证登录状态`, "success");
       window.setTimeout(() => window.location.reload(), 500);
     });
   }
@@ -1763,19 +1765,23 @@
     if (!accountProfile?.id) {
       return null;
     }
-    const restoredHint = getRestoredProfileHint();
-    if (restoredHint?.profileId) {
-      const hintedProfile = sessionProfiles.find((profile) => profile.id === restoredHint.profileId);
-      if (hintedProfile) {
-        return hintedProfile;
-      }
-    }
     return sessionProfiles.find((profile) => profile.accountId === accountProfile.id)
       || sessionProfiles.find((profile) => normalizeName(profile.name) === normalizeName(accountProfile.detectedName));
   }
 
   function updateAccountSessionStatus() {
     if (!accountSessionStatus || !accountProfile) {
+      return;
+    }
+
+    sessionSaveButton.disabled = !accountProfile.hasIdentity;
+    sessionSaveNewButton.disabled = !accountProfile.hasIdentity;
+    if (!accountProfile.hasIdentity) {
+      const restoredHint = getRestoredProfileHint();
+      accountSessionStatus.textContent = restoredHint
+        ? `「${restoredHint.name}」未通过页面登录验证，请手动登录后更新登录态`
+        : "当前页面未确认登录账号";
+      sessionSaveButton.textContent = "登录后保存登录态";
       return;
     }
 
@@ -1793,7 +1799,7 @@
   }
 
   function maybePromptSaveDetectedAccount() {
-    if (!autoDiscoveryEnabled || !accountProfile?.id || !sessionProfiles || getProfileForCurrentAccount()) {
+    if (!autoDiscoveryEnabled || !accountProfile?.id || !accountProfile.hasIdentity || !sessionProfiles || getProfileForCurrentAccount()) {
       return;
     }
     if (!isUsefulAccountName(accountProfile.detectedName)) {
@@ -1912,14 +1918,35 @@
     const storedIdentity = findStoredAccountIdentity();
     const sidebarName = findSidebarAccountName();
     const visibleName = findVisibleAccountName();
-    const restoredHint = getRestoredProfileHint();
     const storedName = isUsefulAccountName(storedIdentity.name) ? storedIdentity.name : "";
-    const name = sidebarName || visibleName || storedName || restoredHint?.name || "当前账号";
+    const name = sidebarName || visibleName || storedName || "当前账号";
+    const hasIdentity = !isLikelyLoggedOutPage()
+      && Boolean(sidebarName || visibleName || storedName || storedIdentity.id || storedIdentity.tokenHint);
     const rawId = storedIdentity.id || storedIdentity.tokenHint || name || location.hostname;
     return {
-      id: restoredHint?.accountId || `account_${hashString(`${location.hostname}:${rawId}`)}`,
-      name
+      id: `account_${hashString(`${location.hostname}:${rawId}`)}`,
+      name,
+      hasIdentity
     };
+  }
+
+  function isLikelyLoggedOutPage() {
+    const loginLabels = /^(登录|立即登录|扫码登录|手机号登录|验证码登录|Log in|Sign in)$/i;
+    const controls = Array.from(document.querySelectorAll("button, a, [role='button']")).slice(0, 300);
+    return controls.some((control) => {
+      const label = cleanAccountCandidate(
+        control.getAttribute("aria-label")
+          || control.getAttribute("title")
+          || getDirectText(control)
+          || control.textContent
+          || ""
+      );
+      if (!loginLabels.test(label)) {
+        return false;
+      }
+      const rect = control.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
   }
 
   function findStoredAccountIdentity() {
