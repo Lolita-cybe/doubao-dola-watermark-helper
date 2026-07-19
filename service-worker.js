@@ -270,17 +270,37 @@ async function restoreSessionProfile(profileId, url) {
     throw new Error("This profile belongs to a different site");
   }
 
-  await clearCookiesForDomain(baseDomain);
-  for (const cookie of profile.cookies || []) {
-    await setCookieSafely(cookie);
+  const savedCookies = Array.isArray(profile.cookies) ? profile.cookies : [];
+  if (!savedCookies.length) {
+    throw new Error("保存的登录态中没有可恢复的 Cookie，请手动登录后重新保存");
   }
 
-  return {
-    ok: true,
-    profile: toProfileList({ [profile.id]: profile })[0],
-    localStorage: isPlainObject(profile.localStorage) ? profile.localStorage : {},
-    sessionStorage: isPlainObject(profile.sessionStorage) ? profile.sessionStorage : {}
-  };
+  const previousCookies = await chrome.cookies.getAll({ domain: baseDomain });
+  try {
+    await clearCookiesForDomain(baseDomain);
+    const restoreReport = await restoreCookies(savedCookies);
+    if (restoreReport.failed.length) {
+      throw new Error(`有 ${restoreReport.failed.length} 个 Cookie 写入失败`);
+    }
+    if (!restoreReport.restored) {
+      throw new Error("保存的 Cookie 已全部过期，请手动登录后重新保存");
+    }
+
+    return {
+      ok: true,
+      profile: toProfileList({ [profile.id]: profile })[0],
+      localStorage: isPlainObject(profile.localStorage) ? profile.localStorage : {},
+      sessionStorage: isPlainObject(profile.sessionStorage) ? profile.sessionStorage : {},
+      restoredCookieCount: restoreReport.restored,
+      skippedCookieCount: restoreReport.skipped
+    };
+  } catch (error) {
+    const rollbackReport = await rollbackCookies(baseDomain, previousCookies);
+    const rollbackMessage = rollbackReport.clearError || rollbackReport.failed.length
+      ? "原登录状态回滚不完整，请刷新页面并检查登录状态"
+      : "已恢复原登录状态";
+    throw new Error(`登录态恢复失败，${rollbackMessage}：${error.message || error}`);
+  }
 }
 
 async function deleteSessionProfile(profileId) {
@@ -372,11 +392,18 @@ function sanitizeImportedCookie(cookie) {
 async function clearCookiesForDomain(baseDomain) {
   const cookies = await chrome.cookies.getAll({ domain: baseDomain });
   for (const cookie of cookies) {
-    await chrome.cookies.remove({
+    const details = {
       url: getCookieUrl(cookie),
       name: cookie.name,
       storeId: cookie.storeId
-    }).catch(() => {});
+    };
+    if (cookie.partitionKey) {
+      details.partitionKey = cookie.partitionKey;
+    }
+    const removed = await chrome.cookies.remove(details);
+    if (!removed) {
+      throw new Error(`无法清除 Cookie：${cookie.name}`);
+    }
   }
 }
 
@@ -385,20 +412,67 @@ async function setCookieSafely(cookie) {
     url: getCookieUrl(cookie),
     name: cookie.name,
     value: cookie.value || "",
-    domain: cookie.domain,
     path: cookie.path || "/",
     secure: Boolean(cookie.secure),
     httpOnly: Boolean(cookie.httpOnly),
     sameSite: normalizeSameSite(cookie.sameSite)
   };
 
-  if (Number.isFinite(cookie.expirationDate)) {
+  if (!isHostOnlyCookie(cookie) && cookie.domain) {
+    details.domain = cookie.domain;
+  }
+  if (cookie.storeId) {
+    details.storeId = cookie.storeId;
+  }
+  if (cookie.partitionKey) {
+    details.partitionKey = cookie.partitionKey;
+  }
+  if (!cookie.session && Number.isFinite(cookie.expirationDate)) {
     details.expirationDate = cookie.expirationDate;
   }
 
-  await chrome.cookies.set(details).catch((error) => {
-    console.warn("set cookie failed:", cookie.name, error);
-  });
+  const restored = await chrome.cookies.set(details);
+  if (!restored) {
+    throw new Error(`无法写入 Cookie：${cookie.name}`);
+  }
+  return restored;
+}
+
+async function restoreCookies(cookies) {
+  const report = { restored: 0, skipped: 0, failed: [] };
+  const nowSeconds = Date.now() / 1000;
+  for (const cookie of cookies) {
+    if (!cookie?.name || !cookie?.domain) {
+      report.failed.push({ name: cookie?.name || "unknown", error: "invalid cookie" });
+      continue;
+    }
+    if (!cookie.session && Number.isFinite(cookie.expirationDate) && cookie.expirationDate <= nowSeconds) {
+      report.skipped += 1;
+      continue;
+    }
+    try {
+      await setCookieSafely(cookie);
+      report.restored += 1;
+    } catch (error) {
+      report.failed.push({ name: cookie.name, error: error.message || String(error) });
+    }
+  }
+  return report;
+}
+
+async function rollbackCookies(baseDomain, cookies) {
+  let clearError = "";
+  try {
+    await clearCookiesForDomain(baseDomain);
+  } catch (error) {
+    console.warn("clear cookies before rollback failed:", error);
+    clearError = error.message || String(error);
+  }
+  const report = await restoreCookies(cookies.map(sanitizeCookieForStorage));
+  if (report.failed.length) {
+    console.warn("cookie rollback incomplete:", report.failed);
+  }
+  return { ...report, clearError };
 }
 
 function sanitizeCookieForStorage(cookie) {
@@ -410,8 +484,19 @@ function sanitizeCookieForStorage(cookie) {
     secure: cookie.secure,
     httpOnly: cookie.httpOnly,
     sameSite: cookie.sameSite,
-    expirationDate: cookie.expirationDate
+    expirationDate: cookie.expirationDate,
+    hostOnly: isHostOnlyCookie(cookie),
+    session: Boolean(cookie.session),
+    storeId: cookie.storeId || "",
+    partitionKey: cookie.partitionKey || null
   };
+}
+
+function isHostOnlyCookie(cookie) {
+  if (typeof cookie?.hostOnly === "boolean") {
+    return cookie.hostOnly;
+  }
+  return Boolean(cookie?.domain) && !String(cookie.domain).startsWith(".");
 }
 
 function getCookieUrl(cookie) {
