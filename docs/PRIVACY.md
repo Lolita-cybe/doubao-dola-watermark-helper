@@ -15,7 +15,7 @@
 插件使用 `chrome.storage.local` 保存以下设置：
 
 - 是否启用插件。
-- 是否启用 15 秒配置注入。
+- 是否启用自定义视频时长，以及选择的 4～15 秒时长。
 - 是否启用无水印资源提取。
 
 这些设置保存在浏览器本地。
@@ -54,11 +54,11 @@ The local account notes feature stores only helper metadata in `chrome.storage.l
 - Account color.
 - Last seen time and captured resource count.
 
-It does not store account passwords, raw cookies, exported cookies, or raw session tokens. The 15-second configuration switch and watermark-free resource switch remain global extension settings shared by all accounts.
+It does not store account passwords or create new cookie snapshots. The custom video-duration setting and watermark-free resource switch remain global extension settings shared by all accounts.
 
 ## Local session switching
 
-If the optional local session switching feature is used, the extension stores the selected Doubao / Dola site's cookies, localStorage, and sessionStorage in `chrome.storage.local` so the user can restore that session later on the same computer.
+Session saving and switching are disabled from version 1.6.8 because restoring an expired site snapshot can overwrite every currently signed-in Doubao account in the same browser profile. Existing snapshots created by older versions are retained locally only so the user can review, export, or delete them.
 
 This data is not uploaded by the extension and is not exported by the UI. It is sensitive local login-state data, so users should only save sessions for accounts they control on a trusted computer.
 

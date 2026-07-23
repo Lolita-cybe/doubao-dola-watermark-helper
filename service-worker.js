@@ -1,32 +1,25 @@
+importScripts("duration-utils.js");
+
 const DEBUGGER_VERSION = "1.3";
-const EXTENSION_VERSION = "1.6.7";
+const EXTENSION_VERSION = "1.7.0";
 const DEBUG_LOG_ENABLED = false;
 const SETTINGS_KEY = "doubaoDolaHelperSettings";
 const SESSION_PROFILES_KEY = "doubaoDolaHelperSessionProfiles";
 const DEFAULT_SETTINGS = {
   enabled: true,
-  duration15Enabled: true,
+  durationOverrideEnabled: true,
+  durationSeconds: 15,
   watermarkEnabled: true,
   darkModeEnabled: false
 };
 
 const ENDPOINTS = {
-  doubaoSkillPack: "doubao.com/samantha/skill/pack",
-  dolaSkillPack: "dola.com/samantha/skill/pack",
-  actionBarConfig: ".com/alice/slot/action_bar_v3/get_item_conf",
+  videoCompletion: ".com/chat/completion",
   doubaoChainSingle: "doubao.com/im/chain/single",
   dolaChainSingle: "dola.com/im/chain/single"
 };
 
-const DURATION_LABELS = new Set([
-  "时长",
-  "鏃堕暱",
-  "閺冨爼鏆?"
-]);
-
-const DOUBAO_SKILL_PACK_URL_PART = ENDPOINTS.doubaoSkillPack;
-const DOLA_SKILL_PACK_URL_PART = ENDPOINTS.dolaSkillPack;
-const ACTION_BAR_CONF_URL_PART = ENDPOINTS.actionBarConfig;
+const VIDEO_COMPLETION_URL_PART = ENDPOINTS.videoCompletion;
 const DOUBAO_CHAIN_SINGLE_URL_PART = ENDPOINTS.doubaoChainSingle;
 const DOLA_CHAIN_SINGLE_URL_PART = ENDPOINTS.dolaChainSingle;
 const QAAB_SALT_HEX = "4dd4c2e6b83162090e52b3c7a6733ba4"
@@ -35,15 +28,12 @@ const QAAB_SALT_HEX = "4dd4c2e6b83162090e52b3c7a6733ba4"
   + "1f05a51892aef2949732b62a38aadd58";
 
 const fetchPatterns = [
-  { urlPattern: `*${DOUBAO_SKILL_PACK_URL_PART}*`, requestStage: "Request" },
-  { urlPattern: `*${DOLA_SKILL_PACK_URL_PART}*`, requestStage: "Request" },
-  { urlPattern: `*${ACTION_BAR_CONF_URL_PART}*`, requestStage: "Response" },
+  { urlPattern: `*${VIDEO_COMPLETION_URL_PART}*`, requestStage: "Request" },
   { urlPattern: `*${DOUBAO_CHAIN_SINGLE_URL_PART}*`, requestStage: "Response" },
   { urlPattern: `*${DOLA_CHAIN_SINGLE_URL_PART}*`, requestStage: "Response" }
 ];
 
 const attachedTabs = new Set();
-const responseFileBodyPromises = new Map();
 let currentSettings = { ...DEFAULT_SETTINGS };
 
 function debugLog(...args) {
@@ -145,17 +135,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "SAVE_SESSION_PROFILE") {
-    saveSessionProfile(message)
-      .then((result) => sendResponse(result))
-      .catch((error) => sendResponse({ ok: false, error: error.message }));
-    return true;
+    sendResponse({ ok: false, error: "为保护当前已登录账号，登录态保存功能已停用" });
+    return false;
   }
 
   if (message.type === "RESTORE_SESSION_PROFILE" && message.profileId) {
-    restoreSessionProfile(message.profileId, message.url)
-      .then((result) => sendResponse(result))
-      .catch((error) => sendResponse({ ok: false, error: error.message }));
-    return true;
+    sendResponse({ ok: false, error: "为保护当前全部豆包账号，登录态切换功能已停用" });
+    return false;
   }
 
   if (message.type === "DELETE_SESSION_PROFILE" && message.profileId) {
@@ -230,77 +216,6 @@ function toProfileList(profiles) {
       savedAt: profile.savedAt
     }))
     .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
-}
-
-async function saveSessionProfile(message) {
-  const sourceUrl = normalizeTargetUrl(message.url);
-  const host = sourceUrl.hostname;
-  const baseDomain = getManagedBaseDomain(host);
-  const cookies = await chrome.cookies.getAll({ domain: baseDomain });
-  const profiles = await getSessionProfiles();
-  const id = message.profileId || `session_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-  const name = sanitizeProfileName(message.name) || host;
-
-  profiles[id] = {
-    id,
-    accountId: String(message.accountId || ""),
-    name,
-    host,
-    baseDomain,
-    cookies: cookies.map(sanitizeCookieForStorage),
-    localStorage: isPlainObject(message.localStorage) ? message.localStorage : {},
-    sessionStorage: isPlainObject(message.sessionStorage) ? message.sessionStorage : {},
-    savedAt: Date.now()
-  };
-
-  await setSessionProfiles(profiles);
-  return { ok: true, profile: toProfileList({ [id]: profiles[id] })[0], profiles: toProfileList(profiles) };
-}
-
-async function restoreSessionProfile(profileId, url) {
-  const sourceUrl = normalizeTargetUrl(url);
-  const profiles = await getSessionProfiles();
-  const profile = profiles[profileId];
-  if (!profile) {
-    throw new Error("Session profile not found");
-  }
-
-  const baseDomain = getManagedBaseDomain(sourceUrl.hostname);
-  if (baseDomain !== profile.baseDomain) {
-    throw new Error("This profile belongs to a different site");
-  }
-
-  const savedCookies = Array.isArray(profile.cookies) ? profile.cookies : [];
-  if (!savedCookies.length) {
-    throw new Error("保存的登录态中没有可恢复的 Cookie，请手动登录后重新保存");
-  }
-
-  const previousCookies = await chrome.cookies.getAll({ domain: baseDomain });
-  try {
-    await clearCookiesForDomain(baseDomain);
-    const restoreReport = await restoreCookies(savedCookies);
-    if (restoreReport.failed.length) {
-      throw new Error(`有 ${restoreReport.failed.length} 个 Cookie 写入失败`);
-    }
-    if (!restoreReport.restored) {
-      throw new Error("保存的 Cookie 已全部过期，请手动登录后重新保存");
-    }
-
-    return {
-      ok: true,
-      profile: toProfileList({ [profile.id]: profile })[0],
-      localStorage: isPlainObject(profile.localStorage) ? profile.localStorage : {},
-      sessionStorage: isPlainObject(profile.sessionStorage) ? profile.sessionStorage : {},
-      restoredCookieCount: restoreReport.restored,
-      skippedCookieCount: restoreReport.skipped
-    };
-  } catch (error) {
-    const rollbackReport = await rollbackCookies(baseDomain, previousCookies);
-    const rollbackMessage = rollbackReport.clearError || rollbackReport.failed.length
-      ? "原登录状态回滚不完整，请刷新页面并检查登录状态"
-      : "已恢复原登录状态";
-    throw new Error(`登录态恢复失败，${rollbackMessage}：${error.message || error}`);
-  }
 }
 
 async function deleteSessionProfile(profileId) {
@@ -389,92 +304,6 @@ function sanitizeImportedCookie(cookie) {
   return sanitized;
 }
 
-async function clearCookiesForDomain(baseDomain) {
-  const cookies = await chrome.cookies.getAll({ domain: baseDomain });
-  for (const cookie of cookies) {
-    const details = {
-      url: getCookieUrl(cookie),
-      name: cookie.name,
-      storeId: cookie.storeId
-    };
-    if (cookie.partitionKey) {
-      details.partitionKey = cookie.partitionKey;
-    }
-    const removed = await chrome.cookies.remove(details);
-    if (!removed) {
-      throw new Error(`无法清除 Cookie：${cookie.name}`);
-    }
-  }
-}
-
-async function setCookieSafely(cookie) {
-  const details = {
-    url: getCookieUrl(cookie),
-    name: cookie.name,
-    value: cookie.value || "",
-    path: cookie.path || "/",
-    secure: Boolean(cookie.secure),
-    httpOnly: Boolean(cookie.httpOnly),
-    sameSite: normalizeSameSite(cookie.sameSite)
-  };
-
-  if (!isHostOnlyCookie(cookie) && cookie.domain) {
-    details.domain = cookie.domain;
-  }
-  if (cookie.storeId) {
-    details.storeId = cookie.storeId;
-  }
-  if (cookie.partitionKey) {
-    details.partitionKey = cookie.partitionKey;
-  }
-  if (!cookie.session && Number.isFinite(cookie.expirationDate)) {
-    details.expirationDate = cookie.expirationDate;
-  }
-
-  const restored = await chrome.cookies.set(details);
-  if (!restored) {
-    throw new Error(`无法写入 Cookie：${cookie.name}`);
-  }
-  return restored;
-}
-
-async function restoreCookies(cookies) {
-  const report = { restored: 0, skipped: 0, failed: [] };
-  const nowSeconds = Date.now() / 1000;
-  for (const cookie of cookies) {
-    if (!cookie?.name || !cookie?.domain) {
-      report.failed.push({ name: cookie?.name || "unknown", error: "invalid cookie" });
-      continue;
-    }
-    if (!cookie.session && Number.isFinite(cookie.expirationDate) && cookie.expirationDate <= nowSeconds) {
-      report.skipped += 1;
-      continue;
-    }
-    try {
-      await setCookieSafely(cookie);
-      report.restored += 1;
-    } catch (error) {
-      report.failed.push({ name: cookie.name, error: error.message || String(error) });
-    }
-  }
-  return report;
-}
-
-async function rollbackCookies(baseDomain, cookies) {
-  let clearError = "";
-  try {
-    await clearCookiesForDomain(baseDomain);
-  } catch (error) {
-    console.warn("clear cookies before rollback failed:", error);
-    clearError = error.message || String(error);
-  }
-  const report = await restoreCookies(cookies.map(sanitizeCookieForStorage));
-  if (report.failed.length) {
-    console.warn("cookie rollback incomplete:", report.failed);
-  }
-  return { ...report, clearError };
-}
-
 function sanitizeCookieForStorage(cookie) {
   return {
     name: cookie.name,
@@ -497,13 +326,6 @@ function isHostOnlyCookie(cookie) {
     return cookie.hostOnly;
   }
   return Boolean(cookie?.domain) && !String(cookie.domain).startsWith(".");
-}
-
-function getCookieUrl(cookie) {
-  const protocol = cookie.secure ? "https://" : "http://";
-  const domain = String(cookie.domain || "").replace(/^\./, "");
-  const path = cookie.path || "/";
-  return `${protocol}${domain}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 function normalizeTargetUrl(url) {
@@ -540,7 +362,10 @@ function isPlainObject(value) {
 function normalizeSettings(value) {
   return {
     enabled: value?.enabled !== false,
-    duration15Enabled: value?.duration15Enabled !== false,
+    durationOverrideEnabled: typeof value?.durationOverrideEnabled === "boolean"
+      ? value.durationOverrideEnabled
+      : value?.duration15Enabled !== false,
+    durationSeconds: DoubaoDurationUtils.clampDuration(value?.durationSeconds ?? 15),
     watermarkEnabled: value?.watermarkEnabled !== false,
     darkModeEnabled: value?.darkModeEnabled === true
   };
@@ -640,30 +465,12 @@ async function handlePausedRequest(tabId, event) {
       return;
     }
 
-    if (url.includes(DOUBAO_SKILL_PACK_URL_PART)) {
-      if (!settings.duration15Enabled) {
+    if (url.includes(VIDEO_COMPLETION_URL_PART)) {
+      if (!settings.durationOverrideEnabled) {
         await continueRequest(tabId, requestId);
         return;
       }
-      await fulfillJsonFile(tabId, requestId, request.method, "doubao-skill-pack-response.json");
-      return;
-    }
-
-    if (url.includes(DOLA_SKILL_PACK_URL_PART)) {
-      if (!settings.duration15Enabled) {
-        await continueRequest(tabId, requestId);
-        return;
-      }
-      await fulfillJsonFile(tabId, requestId, request.method, "dola-skill-pack-response.json");
-      return;
-    }
-
-    if (url.includes(ACTION_BAR_CONF_URL_PART)) {
-      if (!settings.duration15Enabled) {
-        await continueRequest(tabId, requestId);
-        return;
-      }
-      await rewriteActionBarConfigResponse(tabId, event);
+      await rewriteVideoDurationRequest(tabId, event, settings.durationSeconds);
       return;
     }
 
@@ -692,42 +499,32 @@ async function handlePausedRequest(tabId, event) {
   }
 }
 
-async function fulfillJsonFile(tabId, requestId, method, fileName) {
-  if ((method || "").toUpperCase() === "OPTIONS") {
-    await sendCommand(tabId, "Fetch.fulfillRequest", {
-      requestId,
-      responseCode: 204,
-      responsePhrase: "No Content",
-      responseHeaders: corsHeaders()
-    });
-    return;
-  }
-
-  const body = await getResponseFileBody(fileName);
-  await sendCommand(tabId, "Fetch.fulfillRequest", {
-    requestId,
-    responseCode: 200,
-    responsePhrase: "OK",
-    responseHeaders: responseHeadersForTextBody(corsHeaders(), body),
-    body: toBase64Utf8(body)
-  });
-}
-
 function continueRequest(tabId, requestId) {
   return sendCommand(tabId, "Fetch.continueRequest", { requestId });
 }
 
-async function rewriteActionBarConfigResponse(tabId, event) {
-  const response = await getPausedResponseBody(tabId, event.requestId);
-  const patchedBody = patchActionBarDuration(response.body);
+async function rewriteVideoDurationRequest(tabId, event, durationSeconds) {
+  const requestId = event.requestId;
+  const postData = event.request?.postData;
+  if (!postData) {
+    await continueRequest(tabId, requestId);
+    return;
+  }
 
-  await sendCommand(tabId, "Fetch.fulfillRequest", {
-    requestId: event.requestId,
-    responseCode: event.responseStatusCode || 200,
-    responsePhrase: event.responseStatusText || "OK",
-    responseHeaders: responseHeadersForTextBody(event.responseHeaders || [], patchedBody),
-    body: toBase64Utf8(patchedBody)
+  const result = DoubaoDurationUtils.patchVideoDurationBody(postData, durationSeconds);
+  if (!result.changed) {
+    await continueRequest(tabId, requestId);
+    return;
+  }
+
+  await sendCommand(tabId, "Fetch.continueRequest", {
+    requestId,
+    postData: toBase64Utf8(result.body)
   });
+  sendToTab(tabId, {
+    type: "DURATION_APPLIED",
+    duration: result.duration
+  }).catch(() => {});
 }
 
 async function inspectChainSingleResponse(tabId, event, source) {
@@ -1127,180 +924,6 @@ function findDolaEncodedVideoUrls(json) {
   return values;
 }
 
-function patchActionBarDuration(body) {
-  try {
-    const json = JSON.parse(body);
-    const changed = patchNestedJsonStrings(json);
-    return changed ? JSON.stringify(json) : body;
-  } catch (error) {
-    console.warn("patch action bar duration failed:", error.message || error);
-    return body;
-  }
-}
-
-function patchNestedJsonStrings(value, seen = new Set()) {
-  if (value == null || typeof value !== "object" || seen.has(value)) {
-    return false;
-  }
-
-  seen.add(value);
-  let changed = false;
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      changed = patchNestedJsonStrings(item, seen) || changed;
-    }
-    return changed;
-  }
-
-  for (const key of Object.keys(value)) {
-    const child = value[key];
-    if (typeof child === "string") {
-      const patchedString = patchJsonStringDurationSafe(child);
-      if (patchedString !== child) {
-        value[key] = patchedString;
-        changed = true;
-      }
-    } else {
-      changed = patchNestedJsonStrings(child, seen) || changed;
-    }
-  }
-
-  return changed;
-}
-
-function patchJsonStringDurationSafe(text) {
-  if (!text || !mightContainDurationLabel(text)) {
-    return text;
-  }
-
-  try {
-    const json = JSON.parse(text);
-    const changed = patchDurationSelectorSafe(json);
-    return changed ? JSON.stringify(json) : text;
-  } catch {
-    return text;
-  }
-}
-
-function patchJsonStringDuration(text) {
-  if (!text || (!text.includes("时长") && !text.includes("鏃堕暱"))) {
-    return text;
-  }
-
-  try {
-    const json = JSON.parse(text);
-    const changed = patchDurationSelector(json);
-    return changed ? JSON.stringify(json) : text;
-  } catch {
-    return text;
-  }
-}
-
-function patchDurationSelectorSafe(value, seen = new Set()) {
-  if (value == null || typeof value !== "object" || seen.has(value)) {
-    return false;
-  }
-
-  seen.add(value);
-  let changed = false;
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      changed = patchDurationSelectorSafe(item, seen) || changed;
-    }
-    return changed;
-  }
-
-  if (isDurationSelector(value) && Array.isArray(value.option_list)) {
-    const has15s = value.option_list.some((option) => option && option.option_key === "15");
-    if (!has15s) {
-      const tenSecondIndex = value.option_list.findIndex((option) => option && option.option_key === "10");
-      const insertIndex = tenSecondIndex >= 0 ? tenSecondIndex + 1 : value.option_list.length;
-      value.option_list.splice(insertIndex, 0, createFifteenSecondOption(value.option_list));
-      changed = true;
-    }
-  }
-
-  for (const key of Object.keys(value)) {
-    const child = value[key];
-    if (typeof child === "string") {
-      const patchedString = patchJsonStringDurationSafe(child);
-      if (patchedString !== child) {
-        value[key] = patchedString;
-        changed = true;
-      }
-    } else {
-      changed = patchDurationSelectorSafe(child, seen) || changed;
-    }
-  }
-
-  return changed;
-}
-
-function mightContainDurationLabel(text) {
-  return Array.from(DURATION_LABELS).some((label) => text.includes(label));
-}
-
-function isDurationSelector(value) {
-  return value && typeof value.label === "string" && DURATION_LABELS.has(value.label);
-}
-
-function patchDurationSelector(value, seen = new Set()) {
-  if (value == null || typeof value !== "object" || seen.has(value)) {
-    return false;
-  }
-
-  seen.add(value);
-  let changed = false;
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      changed = patchDurationSelector(item, seen) || changed;
-    }
-    return changed;
-  }
-
-  if ((value.label === "时长" || value.label === "鏃堕暱") && Array.isArray(value.option_list)) {
-    const has15s = value.option_list.some((option) => option && option.option_key === "15");
-    if (!has15s) {
-      const tenSecondIndex = value.option_list.findIndex((option) => option && option.option_key === "10");
-      const insertIndex = tenSecondIndex >= 0 ? tenSecondIndex + 1 : value.option_list.length;
-      value.option_list.splice(insertIndex, 0, createFifteenSecondOption(value.option_list));
-      changed = true;
-    }
-  }
-
-  for (const key of Object.keys(value)) {
-    const child = value[key];
-    if (typeof child === "string") {
-      const patchedString = patchJsonStringDurationSafe(child);
-      if (patchedString !== child) {
-        value[key] = patchedString;
-        changed = true;
-      }
-    } else {
-      changed = patchDurationSelector(child, seen) || changed;
-    }
-  }
-
-  return changed;
-}
-
-function createFifteenSecondOption(optionList) {
-  const maxId = optionList.reduce((maxValue, option) => {
-    const id = Number(option?.id);
-    return Number.isFinite(id) ? Math.max(maxValue, id) : maxValue;
-  }, 0);
-
-  return {
-    id: maxId + 1,
-    display_text: "15s",
-    message_text: "",
-    option_key: "15"
-  };
-}
-
 function findImageOriRawUrls(value) {
   const urls = [];
   walkJsonAndStrings(value, (node) => {
@@ -1435,22 +1058,6 @@ function responseHeadersForTextBody(headers, body) {
   }
 
   return nextHeaders;
-}
-
-function getResponseFileBody(fileName) {
-  if (!responseFileBodyPromises.has(fileName)) {
-    responseFileBodyPromises.set(fileName, fetch(chrome.runtime.getURL(fileName)).then((response) => response.text()));
-  }
-  return responseFileBodyPromises.get(fileName);
-}
-
-function corsHeaders() {
-  return [
-    { name: "access-control-allow-origin", value: "*" },
-    { name: "access-control-allow-credentials", value: "true" },
-    { name: "access-control-allow-methods", value: "GET, POST, OPTIONS" },
-    { name: "access-control-allow-headers", value: "*" }
-  ];
 }
 
 function toBase64Utf8(text) {

@@ -19,7 +19,8 @@
   let launcherDragState = null;
   let settings = {
     enabled: true,
-    duration15Enabled: true,
+    durationOverrideEnabled: true,
+    durationSeconds: 15,
     watermarkEnabled: true,
     darkModeEnabled: false
   };
@@ -377,6 +378,59 @@
       .switch input:focus-visible + .switch-track {
         outline: 2px solid rgba(37, 99, 235, 0.32);
         outline-offset: 2px;
+      }
+
+      .duration-control {
+        margin: 0 10px 8px;
+        padding: 8px 10px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-small);
+        background: var(--surface-subtle);
+        transition: opacity 150ms ease;
+      }
+
+      .duration-control.is-disabled {
+        opacity: 0.5;
+      }
+
+      .duration-control-head,
+      .duration-marks {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .duration-control-head {
+        margin-bottom: 5px;
+        color: var(--text);
+        font-size: 12px;
+        line-height: 18px;
+        font-weight: 650;
+      }
+
+      .duration-value {
+        color: var(--primary);
+        font: inherit;
+        font-weight: 700;
+      }
+
+      .duration-range {
+        display: block;
+        width: 100%;
+        height: 20px;
+        margin: 0;
+        accent-color: var(--primary);
+        cursor: pointer;
+      }
+
+      .duration-range:disabled {
+        cursor: not-allowed;
+      }
+
+      .duration-marks {
+        color: var(--text-muted);
+        font-size: 10px;
+        line-height: 14px;
       }
 
       .account-panel {
@@ -1117,12 +1171,23 @@
         </label>
         <label class="switch">
           <span class="switch-copy">
-            <span class="switch-name">15 秒配置</span>
-            <span class="switch-description">控制 15 秒视频配置注入</span>
+            <span class="switch-name">自定义视频时长</span>
+            <span class="switch-description">生成时按插件设置覆盖豆包时长</span>
           </span>
-          <input class="setting-toggle" data-setting="duration15Enabled" type="checkbox" />
+          <input class="setting-toggle" data-setting="durationOverrideEnabled" type="checkbox" />
           <span class="switch-track" aria-hidden="true"></span>
         </label>
+        <div class="duration-control">
+          <div class="duration-control-head">
+            <span>生成时长</span>
+            <output class="duration-value">15 秒</output>
+          </div>
+          <input class="duration-range" type="range" min="4" max="15" step="1" value="15" aria-label="自定义视频时长" />
+          <div class="duration-marks" aria-hidden="true">
+            <span>4 秒</span>
+            <span>15 秒</span>
+          </div>
+        </div>
         <label class="switch">
           <span class="switch-copy">
             <span class="switch-name">无水印资源</span>
@@ -1148,7 +1213,7 @@
             <span class="account-name">正在识别当前账号</span>
             <span class="account-chip">本地记录</span>
           </div>
-          <div class="account-meta">15 秒配置和无水印资源开关为所有账号共享</div>
+          <div class="account-meta">自定义视频时长和无水印资源开关为所有账号共享</div>
         </div>
         <button class="tool-button account-edit-button" type="button">账号备注</button>
       </section>
@@ -1165,23 +1230,23 @@
         </select>
         <button class="primary-button account-save-button" type="button">保存</button>
         <div class="auto-discovery-row">
-          <label class="auto-discovery-toggle">
+          <label class="auto-discovery-toggle" hidden>
             <input class="auto-discovery-checkbox" type="checkbox" checked />
-            <span>自动发现新账号并提示保存</span>
+            <span>自动识别当前账号</span>
           </label>
           <div class="account-session-status">正在检查当前账号</div>
         </div>
         <div class="session-tools">
           <div class="session-profile-browser">
             <input class="account-field session-profile-search" type="search" placeholder="搜索账号名称" aria-label="搜索账号名称" autocomplete="off" />
-            <select class="account-field session-profile-select" aria-label="已保存的登录态" size="5">
-              <option value="">暂无已保存登录态</option>
+            <select class="account-field session-profile-select" aria-label="历史账号记录" size="5">
+              <option value="">暂无历史账号记录</option>
             </select>
           </div>
-          <button class="secondary-button session-save-button" type="button">保存当前登录态</button>
-          <button class="primary-button session-restore-button" type="button" disabled>切换登录态</button>
+          <button class="secondary-button session-save-button" type="button" hidden disabled>登录态保存已停用</button>
+          <button class="primary-button session-restore-button" type="button" disabled>切换已停用</button>
           <button class="tool-button session-delete-button" type="button" disabled>删除</button>
-          <div class="session-warning">高级功能：仅保存在本机。切换会替换当前豆包/Dola 登录状态并刷新页面。</div>
+          <div class="session-warning">安全保护：历史登录态可能已被豆包作废，切换会覆盖当前全部账号，因此该功能已停用。多批账号请使用不同的 Chrome 用户配置。</div>
         </div>
       </section>
 
@@ -1230,6 +1295,9 @@
   const settingToggles = Array.from(shadow.querySelectorAll(".setting-toggle"));
   const settingsButton = shadow.querySelector(".settings-button");
   const settingsPopover = shadow.querySelector(".settings-popover");
+  const durationControl = shadow.querySelector(".duration-control");
+  const durationRange = shadow.querySelector(".duration-range");
+  const durationValue = shadow.querySelector(".duration-value");
   const filterButtons = Array.from(shadow.querySelectorAll(".filter-button"));
   const selectAllButton = shadow.querySelector(".select-all-button");
   const clearSelectionButton = shadow.querySelector(".clear-selection-button");
@@ -1311,9 +1379,6 @@
     sessionProfileQuery = sessionProfileSearch.value.trim();
     renderSessionProfiles(sessionProfileSelect.value);
   });
-  sessionSaveButton.addEventListener("click", saveCurrentSessionProfile);
-  sessionSaveNewButton.addEventListener("click", () => saveCurrentSessionProfile({ forceNew: true }));
-  sessionRestoreButton.addEventListener("click", restoreSelectedSessionProfile);
   sessionDeleteButton.addEventListener("click", deleteSelectedSessionProfile);
   backupExportButton.addEventListener("click", exportSessionBackup);
   backupImportButton.addEventListener("click", () => backupFileInput.click());
@@ -1340,13 +1405,25 @@
         [toggle.dataset.setting]: toggle.checked
       };
       applySettings(settings);
-      chrome.runtime.sendMessage({ type: "SET_SETTINGS", settings }, (response) => {
-        if (response?.settings) {
-          settings = response.settings;
-          applySettings(settings);
-        }
-      });
+      persistSettings();
     });
+  });
+
+  durationRange.addEventListener("input", () => {
+    settings = {
+      ...settings,
+      durationSeconds: clampDuration(durationRange.value)
+    };
+    updateDurationControl();
+  });
+
+  durationRange.addEventListener("change", () => {
+    settings = {
+      ...settings,
+      durationSeconds: clampDuration(durationRange.value)
+    };
+    applySettings(settings);
+    persistSettings();
   });
 
   filterButtons.forEach((button) => {
@@ -1431,6 +1508,11 @@
       return;
     }
 
+    if (message.type === "DURATION_APPLIED") {
+      showToast(`已按插件设置使用 ${clampDuration(message.duration)} 秒`, "success");
+      return;
+    }
+
     if (message.type === "MEDIA_STATUS" && typeof message.text === "string") {
       resetForSource(message.sourceKey);
       items.clear();
@@ -1476,7 +1558,9 @@
 
     sessionSaveNewButton.className = "secondary-button session-save-new-button";
     sessionSaveNewButton.type = "button";
-    sessionSaveNewButton.textContent = "另存当前账号";
+    sessionSaveNewButton.textContent = "登录态保存已停用";
+    sessionSaveNewButton.hidden = true;
+    sessionSaveNewButton.disabled = true;
 
     sessionSaveButton.insertAdjacentElement("afterend", sessionSaveNewButton);
     sessionDeleteButton.insertAdjacentElement("afterend", backupExportButton);
@@ -1617,37 +1701,7 @@
   }
 
   async function restoreSelectedSessionProfile() {
-    const profileId = sessionProfileSelect.value;
-    const profile = sessionProfiles.find((item) => item.id === profileId);
-    if (!profile) {
-      return;
-    }
-
-    const confirmed = window.confirm(`恢复「${profile.name}」的本机登录态？请不要先在网页中退出账号。若该登录态已被服务端注销，仍需手动登录。当前页面会自动刷新。`);
-    if (!confirmed) {
-      return;
-    }
-
-    sessionRestoreButton.disabled = true;
-    chrome.runtime.sendMessage({
-      type: "RESTORE_SESSION_PROFILE",
-      profileId,
-      url: location.href
-    }, (response) => {
-      if (!response?.ok) {
-        sessionRestoreButton.disabled = false;
-        updateSessionButtons();
-        showToast(response?.error || "恢复登录态失败，请刷新页面检查当前登录状态", "error");
-        return;
-      }
-
-      restoreStorage(window.localStorage, response.localStorage);
-      restoreStorage(window.sessionStorage, response.sessionStorage);
-      setRestoredProfileHint(profile);
-      const restoredCount = Number(response.restoredCookieCount || 0);
-      showToast(`已恢复 ${restoredCount} 个 Cookie，刷新后验证登录状态`, "success");
-      window.setTimeout(() => window.location.reload(), 500);
-    });
+    showToast("为保护当前已登录账号，登录态切换功能已停用", "error");
   }
 
   async function deleteSelectedSessionProfile() {
@@ -1720,7 +1774,6 @@
   function renderSessionProfiles(selectedId = "") {
     sessionProfileSelect.textContent = "";
     const currentProfile = getProfileForCurrentAccount();
-    const currentName = accountProfile?.detectedName || "当前账号";
     const normalizedQuery = normalizeName(sessionProfileQuery);
     const filteredProfiles = sessionProfiles.filter((profile) => (
       !normalizedQuery || normalizeName(profile.name).includes(normalizedQuery)
@@ -1729,24 +1782,16 @@
     if (!sessionProfiles.length) {
       const option = document.createElement("option");
       option.value = "";
-      option.textContent = `当前未保存：${currentName} · 点击“另存当前账号”`;
+      option.textContent = "暂无历史账号记录";
       sessionProfileSelect.append(option);
       updateSessionButtons();
       return;
     }
 
-    const shouldShowCurrent = !normalizedQuery || normalizeName(currentName).includes(normalizedQuery);
-    if (!currentProfile && accountProfile?.id && shouldShowCurrent) {
-      const currentOption = document.createElement("option");
-      currentOption.value = "";
-      currentOption.textContent = `当前未保存：${currentName} · 点击“另存当前账号”`;
-      sessionProfileSelect.append(currentOption);
-    }
-
     for (const profile of filteredProfiles) {
       const option = document.createElement("option");
       option.value = profile.id;
-      option.textContent = `${profile.name} · ${formatShortTime(profile.savedAt)} · ${profile.cookieCount || 0} cookies`;
+      option.textContent = `${profile.name} · ${formatShortTime(profile.savedAt)} · 历史快照`;
       sessionProfileSelect.append(option);
     }
 
@@ -1774,55 +1819,29 @@
       return;
     }
 
-    sessionSaveButton.disabled = !accountProfile.hasIdentity;
-    sessionSaveNewButton.disabled = !accountProfile.hasIdentity;
+    sessionSaveButton.disabled = true;
+    sessionSaveNewButton.disabled = true;
     if (!accountProfile.hasIdentity) {
-      const restoredHint = getRestoredProfileHint();
-      accountSessionStatus.textContent = restoredHint
-        ? `「${restoredHint.name}」未通过页面登录验证，请手动登录后更新登录态`
-        : "当前页面未确认登录账号";
-      sessionSaveButton.textContent = "登录后保存登录态";
+      accountSessionStatus.textContent = "当前页面未确认登录账号 · 登录态切换已停用";
       return;
     }
 
     const profile = getProfileForCurrentAccount();
     if (profile) {
-      accountSessionStatus.textContent = `已保存：${profile.name} · ${formatShortTime(profile.savedAt)} · 可更新`;
-      sessionSaveButton.textContent = "更新当前登录态";
+      accountSessionStatus.textContent = `历史记录：${profile.name} · 登录态切换已停用`;
       return;
     }
 
-    sessionSaveButton.textContent = "保存当前登录态";
-    accountSessionStatus.textContent = autoDiscoveryEnabled
-      ? `未保存：${accountProfile.detectedName || "当前账号"} · 自动发现已开启`
-      : `未保存：${accountProfile.detectedName || "当前账号"} · 自动发现已关闭`;
+    accountSessionStatus.textContent = `当前账号：${accountProfile.detectedName || "当前账号"} · 不保存登录态`;
   }
 
   function maybePromptSaveDetectedAccount() {
-    if (!autoDiscoveryEnabled || !accountProfile?.id || !accountProfile.hasIdentity || !sessionProfiles || getProfileForCurrentAccount()) {
-      return;
-    }
-    if (!isUsefulAccountName(accountProfile.detectedName)) {
-      return;
-    }
-    if (promptedAccountIds.has(accountProfile.id)) {
-      return;
-    }
-    promptedAccountIds.add(accountProfile.id);
-    window.setTimeout(() => {
-      if (!autoDiscoveryEnabled || getProfileForCurrentAccount()) {
-        return;
-      }
-      const name = accountProfile.detectedName || "当前账号";
-      if (window.confirm(`检测到新账号「${name}」，是否保存当前登录态？`)) {
-        saveCurrentSessionProfile({ skipConfirm: true });
-      }
-    }, 600);
+    // Account identity is recorded locally, but session cookies are never saved automatically.
   }
 
   function updateSessionButtons() {
     const hasProfile = Boolean(sessionProfileSelect.value);
-    sessionRestoreButton.disabled = !hasProfile;
+    sessionRestoreButton.disabled = true;
     sessionDeleteButton.disabled = !hasProfile;
   }
 
@@ -1911,7 +1930,7 @@
 
     const captured = accountProfile.capturedCount ? ` · 已记录 ${accountProfile.capturedCount} 个资源` : "";
     const lastCaptured = accountProfile.lastCapturedAt ? ` · 最近 ${formatShortTime(accountProfile.lastCapturedAt)}` : "";
-    accountMeta.textContent = `全局共享：15 秒配置 / 无水印资源${captured}${lastCaptured}`;
+    accountMeta.textContent = `全局共享：自定义视频时长 / 无水印资源${captured}${lastCaptured}`;
   }
 
   function detectCurrentAccount() {
@@ -2454,7 +2473,10 @@
   function applySettings(nextSettings) {
     settings = {
       enabled: nextSettings?.enabled !== false,
-      duration15Enabled: nextSettings?.duration15Enabled !== false,
+      durationOverrideEnabled: typeof nextSettings?.durationOverrideEnabled === "boolean"
+        ? nextSettings.durationOverrideEnabled
+        : nextSettings?.duration15Enabled !== false,
+      durationSeconds: clampDuration(nextSettings?.durationSeconds ?? 15),
       watermarkEnabled: nextSettings?.watermarkEnabled !== false,
       darkModeEnabled: nextSettings?.darkModeEnabled === true
     };
@@ -2463,10 +2485,35 @@
     settingToggles.forEach((toggle) => {
       toggle.checked = Boolean(settings[toggle.dataset.setting]);
     });
+    updateDurationControl();
     updateToolbarState();
     if (!getFilteredItems().length) {
       renderResourceList([]);
     }
+  }
+
+  function updateDurationControl() {
+    durationRange.value = String(clampDuration(settings.durationSeconds));
+    durationRange.disabled = !settings.durationOverrideEnabled;
+    durationControl.classList.toggle("is-disabled", !settings.durationOverrideEnabled);
+    durationValue.textContent = `${clampDuration(settings.durationSeconds)} 秒`;
+  }
+
+  function clampDuration(value) {
+    const duration = Math.round(Number(value));
+    if (!Number.isFinite(duration)) {
+      return 15;
+    }
+    return Math.min(15, Math.max(4, duration));
+  }
+
+  function persistSettings() {
+    chrome.runtime.sendMessage({ type: "SET_SETTINGS", settings }, (response) => {
+      if (response?.settings) {
+        settings = response.settings;
+        applySettings(settings);
+      }
+    });
   }
 
   function downloadUrls(urls) {

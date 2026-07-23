@@ -1,11 +1,11 @@
 # 豆包 / Dola 无水印资源助手
 
-> 一个用于豆包与 Dola 网页端的 Chrome / Edge 浏览器扩展。支持捕获图片、视频资源，提供预览、批量下载、15 秒配置开关、无水印资源提取、多账号本地保存、账号搜索及登录态备份。
+> 一个用于豆包与 Dola 网页端的 Chrome / Edge 浏览器扩展。支持捕获图片、视频资源，提供预览、批量下载、4～15 秒自定义视频时长、无水印资源提取和当前账号识别。
 
 [![Manifest V3](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active-brightgreen)](#)
-[![Release](https://img.shields.io/badge/release-v1.6.7-blue)](https://github.com/Lolita-cybe/doubao-dola-watermark-helper/releases/tag/v1.6.7)
+[![Release](https://img.shields.io/badge/release-v1.7.0-blue)](https://github.com/Lolita-cybe/doubao-dola-watermark-helper/releases/tag/v1.7.0)
 
 ## 项目简介
 
@@ -15,7 +15,7 @@
 
 它的核心思路不是对视频画面做后期处理，而是监听网页接口响应，从接口数据中提取可用的原始资源或无水印资源地址。
 
-插件还提供本地多账号管理：可识别当前豆包账号、自动发现新账号并提示保存、在已保存账号之间切换；账号列表支持按名称搜索和滚动浏览。登录态备份可导入 / 导出，数据只保存在本机浏览器中。
+插件可以识别当前豆包账号，并保留旧版本已经保存的历史账号记录。由于豆包可能在服务器端注销旧登录态，而恢复历史快照会覆盖当前浏览器中的全部账号，从 1.6.8 起已停用登录态保存和切换。多批账号建议使用不同的 Chrome 用户配置。
 
 > 请仅用于你自己生成、拥有版权或已获得授权的内容。使用者需要自行遵守豆包、Dola、浏览器平台规则以及所在地法律法规。
 
@@ -31,21 +31,14 @@
 - 插件图标唤起：点击浏览器插件图标打开下载器面板。
 - 功能开关：
   - `启用插件`：插件总开关，关闭后目标接口直接放行。
-  - `15 秒配置`：控制 15 秒视频配置注入。
+  - `自定义视频时长`：在插件内选择 4～15 秒，生成请求发出时覆盖豆包页面当前时长。
   - `无水印资源`：控制无水印资源提取和显示。
   - `夜晚模式`：切换资源助手面板深色外观，刷新后保持设置。
 - 本地账号管理：
   - 自动识别当前豆包账号。
-  - 自动发现新账号并提示保存。
-  - 已保存账号再次登录时不会重复保存。
-  - 支持更新当前账号登录态。
-  - 支持在已保存账号之间切换。
-  - 支持按账号名称搜索和筛选已保存账号。
-  - 支持保存多个账号，列表可滚动浏览。
-- 备份与恢复：
-  - 支持导出本地登录态 JSON 备份。
-  - 支持导入备份恢复账号列表。
-- 持久化设置：开关状态和账号登录态保存到浏览器本地存储；已启用扩展存储容量以适配多账号备份。
+  - 保留并搜索旧版本中的历史账号记录。
+  - 登录态保存和切换已停用，防止覆盖当前浏览器中的全部账号。
+- 持久化设置：功能开关保存到浏览器本地存储。
 
 ## 安装方式
 
@@ -64,26 +57,19 @@
 ## 使用方式
 
 1. 安装扩展后打开豆包或 Dola 页面。
-2. 正常生成图片或视频。
-3. 页面中会出现“豆包 / Dola 资源助手”入口。
-4. 资源捕获成功后，面板内会展示图片或视频卡片。
-5. 可直接预览、复制链接或下载资源。
+2. 需要自定义视频时长时，在插件设置中启用“自定义视频时长”并选择 4～15 秒。
+3. 正常生成图片或视频。无需再操作豆包官方时长滑杆，插件会在视频生成请求发出时应用所选秒数。
+4. 页面中会出现“豆包 / Dola 资源助手”入口。
+5. 资源捕获成功后，面板内会展示图片或视频卡片。
+6. 可直接预览、复制链接或下载资源。
 
 如果插件图标角标显示 `OFF`，请打开面板并确认顶部“启用插件”开关已打开。
 
 ## 多账号使用
 
-账号管理功能只保存在本机浏览器中，不会上传到作者服务器。
+同一个 Chrome 用户配置中的豆包账号共享 Cookie 和网站数据。需要管理多批账号时，请创建多个 Chrome 用户配置，例如“豆包 A 组”“豆包 B 组”，每个配置分别登录一批账号并单独加载本扩展。
 
-常见流程：
-
-1. 登录一个豆包账号。
-2. 打开资源助手面板中的“账号管理”。
-3. 如果开启了自动发现，插件会提示保存新账号登录态。
-4. 切换到另一个豆包账号后重复保存。
-5. 后续可在账号下拉框中选择已保存账号并切换。
-
-导出的备份 JSON 包含登录态数据，等同于账号钥匙。请只保存在自己的电脑上，不要发送给他人，也不要上传到公开位置。
+旧版本导出的 JSON 可能包含登录态数据，等同于账号钥匙。请只保存在自己的电脑上，不要发送给他人，也不要上传到公开位置。
 
 ## 权限说明
 
@@ -92,8 +78,7 @@
 - `debugger`：附加到豆包 / Dola 标签页，读取和处理指定接口请求。
 - `tabs`：识别当前是否为目标页面，并唤起面板。
 - `downloads`：下载用户选择的资源，以及导出本地备份文件。
-- `storage`：保存插件开关、账号列表和本地登录态。
-- `cookies`：保存和恢复豆包 / Dola 本地登录态，用于账号切换。
+- `storage`：保存插件开关、当前账号记录和旧版本历史数据。
 
 Host 权限限制在：
 
@@ -108,10 +93,10 @@ Host 权限限制在：
 ```text
 .
 ├── manifest.json                    # 浏览器扩展配置
-├── service-worker.js                # 后台拦截、解析、下载、设置和账号登录态逻辑
+├── service-worker.js                # 后台拦截、时长重写、资源解析、下载和设置
+├── duration-utils.js                # 视频生成请求时长重写工具
 ├── content-panel.js                 # 页面浮动下载器 UI
-├── doubao-skill-pack-response.json  # 豆包 15 秒配置响应
-├── dola-skill-pack-response.json    # Dola 15 秒配置响应
+├── tests/                            # 请求重写测试
 ├── MAINTENANCE_NOTES.md             # 接口字段维护对照
 ├── docs/
 │   ├── INSTALL.zh-CN.md             # 中文安装说明
@@ -140,7 +125,7 @@ Host 权限限制在：
 
 ## English Summary
 
-Doubao / Dola Watermark-Free Resource Helper is a Chrome / Edge Manifest V3 extension for capturing and previewing image/video resources on Doubao and Dola pages. It provides a floating downloader panel, video preview, batch download, optional 15-second configuration injection, optional watermark-free resource extraction, local account switching, and local session backup import/export.
+Doubao / Dola Watermark-Free Resource Helper is a Chrome / Edge Manifest V3 extension for capturing and previewing image/video resources on Doubao and Dola pages. It provides a floating downloader panel, video preview, batch download, optional 4-15 second video-duration override, optional watermark-free resource extraction, and local account history.
 
 Use it only for content you created, own, or are authorized to download. Saved session backups may contain sensitive login-state data and should be kept private.
 

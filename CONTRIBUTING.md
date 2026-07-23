@@ -16,7 +16,7 @@ Please include:
 - Browser name and version.
 - Extension version.
 - Target site: Doubao or Dola.
-- Which feature failed: panel, 15-second configuration, resource extraction, download, preview.
+- Which feature failed: panel, custom video duration, resource extraction, download, preview.
 - Relevant endpoint names if available.
 
 Do not include private cookies, tokens, account data, or private generated content.
@@ -30,12 +30,14 @@ Before opening a pull request:
    ```bash
    node --check service-worker.js
    node --check content-panel.js
+   node --check duration-utils.js
+   node tests/duration-utils.test.js
    ```
 
 2. Validate JSON files:
 
    ```bash
-   node -e "for (const f of ['manifest.json','doubao-skill-pack-response.json','dola-skill-pack-response.json']) JSON.parse(require('fs').readFileSync(f, 'utf8'))"
+   node -e "JSON.parse(require('fs').readFileSync('manifest.json', 'utf8'))"
    ```
 
 3. Test the unpacked extension in Chrome or Edge.

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.0
+
+- Replaced the old fixed 15-second configuration injection with a plugin-controlled 4-15 second duration selector.
+- Apply the selected duration only to video generation requests inside `ability_param`.
+- Removed the obsolete skill-pack and action-bar response injection path after Doubao introduced its native duration slider.
+- Added duration request-patching tests and backward-compatible migration from the old 15-second switch.
+
+## 1.6.8
+
+- Disabled saved-session switching because an expired snapshot could overwrite every currently signed-in Doubao account in the same browser profile.
+- Disabled new session-cookie snapshots and removed the extension's cookie permission.
+- Preserved existing local account records and backup data for review, export, or deletion.
+- Added guidance to use separate Chrome profiles for independent account groups.
+
 ## 1.6.7
 
 - Added a custom extension icon set for Chrome / Edge toolbar and extension management pages.

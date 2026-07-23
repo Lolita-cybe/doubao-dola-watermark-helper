@@ -1,15 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "\u8c46\u5305 Dola 15\u79d2\u65e0\u6c34\u5370\u8d44\u6e90\u52a9\u624b",
-  "version": "1.6.7",
-  "description": "\u652f\u630115\u79d2\u914d\u7f6e\uff0c\u5e76\u63d0\u53d6\u8c46\u5305\u548c Dola \u7684\u65e0\u6c34\u5370\u56fe\u7247\u3001\u89c6\u9891\u8d44\u6e90\u3002\u652f\u6301\u89c6\u9891\u9884\u89c8\u3001\u591a\u8d26\u53f7\u672c\u5730\u5207\u6362\u3001\u8d26\u53f7\u641c\u7d22\u4e0e\u767b\u5f55\u6001\u5907\u4efd\u3002",
+  "name": "\u8c46\u5305 Dola \u65e0\u6c34\u5370\u8d44\u6e90\u52a9\u624b",
+  "version": "1.7.0",
+  "description": "\u652f\u63014\u81f315\u79d2\u81ea\u5b9a\u4e49\u89c6\u9891\u65f6\u957f\uff0c\u5e76\u63d0\u53d6\u8c46\u5305\u548c Dola \u7684\u65e0\u6c34\u5370\u56fe\u7247\u3001\u89c6\u9891\u8d44\u6e90\u3002\u652f\u6301\u9884\u89c8\u3001\u6279\u91cf\u4e0b\u8f7d\u3001\u8d26\u53f7\u8bc6\u522b\u4e0e\u5386\u53f2\u8bb0\u5f55\u3002",
   "permissions": [
     "debugger",
     "tabs",
     "downloads",
     "storage",
-    "unlimitedStorage",
-    "cookies"
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "*://*.doubao.com/*",
@@ -38,7 +37,7 @@
     }
   ],
   "action": {
-    "default_title": "\u8c46\u5305 Dola 15\u79d2\u65e0\u6c34\u5370\u8d44\u6e90\u52a9\u624b",
+    "default_title": "\u8c46\u5305 Dola \u65e0\u6c34\u5370\u8d44\u6e90\u52a9\u624b",
     "default_icon": {
       "16": "assets/icons/icon-16.png",
       "32": "assets/icons/icon-32.png",

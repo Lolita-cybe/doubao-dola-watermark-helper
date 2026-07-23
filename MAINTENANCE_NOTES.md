@@ -4,9 +4,7 @@
 
 在 `service-worker.js` 顶部的 `ENDPOINTS` 里集中维护：
 
-- `doubao.com/samantha/skill/pack`
-- `dola.com/samantha/skill/pack`
-- `.com/alice/slot/action_bar_v3/get_item_conf`
+- `.com/chat/completion`
 - `doubao.com/im/chain/single`
 - `dola.com/im/chain/single`
 
@@ -32,13 +30,12 @@ Dola 视频：
 - `man_url`
 - `main_url`
 
-15秒配置：
+自定义视频时长：
 
+- `ability_param`
 - `duration`
-- `supported_durations`
-- `option_key: "15"`
-- `value: "15"`
-- 标签候选在 `DURATION_LABELS` 中维护。
+- 支持范围为 4～15 秒。
+- 插件只重写 `ability_param` 内的 `duration`，不修改请求中的其他同名字段。
 
 ## 当前无水印请求参数
 
@@ -55,8 +52,8 @@ logo_type=unwatermarked
 ## 失效排查顺序
 
 1. 插件图标是否显示 `ON`。
-2. 开启 `DEBUG_LOG_ENABLED`，看 `skill/pack`、`chain/single`、`get_item_conf` 是否命中。
+2. 开启 `DEBUG_LOG_ENABLED`，看 `chat/completion`、`chain/single` 是否命中。
 3. 抓 Network，搜索 `chain/single`，检查返回里是否还有 `image_ori_raw`、`fallback_api`。
 4. 如果有 `fallback_api`，单独检查返回里是否还有 `main_url` / `play_url`。
 5. 如果 URL 是 token，检查是否仍有 `key_seed`，以及 token 前缀是否仍是 `qAAB`。
-6. 如果 15 秒不显示，检查 `skill/pack` 和 `get_item_conf` 返回里的时长配置结构。
+6. 如果自定义时长不生效，检查 `chat/completion` 请求体中是否仍有 `ability_param.duration`。
